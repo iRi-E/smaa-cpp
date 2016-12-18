@@ -58,16 +58,16 @@ private:
 	float m_predication_strength;
 
 	/* Internal */
-	Vec2 calculatePredicatedThreshold(Int2 texcoord, ImageReader *predicationImage);
-	Int2 searchDiag1(ImageReader *edgesImage, Int2 texcoord, Int2 dir, Vec2 *e);
-	Int2 searchDiag2(ImageReader *edgesImage, Int2 texcoord, Int2 dir, Vec2 *e);
-	Vec2 calculateDiagWeights(ImageReader *edgesImage, Int2 texcoord, Vec2 e, Vec4 subsampleIndices);
-	int searchXLeft(ImageReader *edgesImage, Int2 texcoord);
-	int searchXRight(ImageReader *edgesImage, Int2 texcoord);
-	int searchYUp(ImageReader *edgesImage, Int2 texcoord);
-	int searchYDown(ImageReader *edgesImage, Int2 texcoord);
-	void detectHorizontalCornerPattern(ImageReader *edgesImage, Col4 *weights, int left, int right, int y, Int2 d);
-	void detectVerticalCornerPattern(ImageReader *edgesImage, Col4 *weights, int top, int bottom, int x, Int2 d);
+	void calculatePredicatedThreshold(int x, int y, ImageReader *predicationImage, float threshold[2]);
+	int searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int dy, /* out */ float *end, bool *found);
+	int searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int dy, /* out */ float *end, bool *found);
+	void calculateDiagWeights(ImageReader *edgesImage, int x, int y, float e[2], float subsampleIndices[4], float weights[2]);
+	int searchXLeft(ImageReader *edgesImage, int x, int y);
+	int searchXRight(ImageReader *edgesImage, int x, int y);
+	int searchYUp(ImageReader *edgesImage, int x, int y);
+	int searchYDown(ImageReader *edgesImage, int x, int y);
+	void detectHorizontalCornerPattern(ImageReader *edgesImage, float weights[4], int left, int right, int y, int d[2]);
+	void detectVerticalCornerPattern(ImageReader *edgesImage, float weights[4], int top, int bottom, int x, int d[2]);
 
 public:
 	PixelShader() { setPresets(CONFIG_PRESET_HIGH); }
@@ -250,7 +250,7 @@ public:
 	 * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
 	 * thus 'colorImage' should be a non-sRGB texture.
 	 */
-	Vec2 lumaEdgeDetection(Int2 texcoord, ImageReader *colorImage, ImageReader *predicationImage);
+	void lumaEdgeDetection(int x, int y, ImageReader *colorImage, ImageReader *predicationImage, float edges[4]);
 
 	/**
 	 * Color Edge Detection
@@ -258,12 +258,12 @@ public:
 	 * IMPORTANT NOTICE: color edge detection requires gamma-corrected colors, and
 	 * thus 'colorImage' should be a non-sRGB texture.
 	 */
-	Vec2 colorEdgeDetection(Int2 texcoord, ImageReader *colorImage, ImageReader *predicationImage);
+	void colorEdgeDetection(int x, int y, ImageReader *colorImage, ImageReader *predicationImage, float edges[4]);
 
 	/**
 	 * Depth Edge Detection
 	 */
-	Vec2 depthEdgeDetection(Int2 texcoord, ImageReader *depthImage);
+	void depthEdgeDetection(int x, int y, ImageReader *depthImage, float edges[4]);
 
 	/*-----------------------------------------------------------------------------*/
 	/* Blending Weight Calculation Pixel Shader (Second Pass) */
@@ -272,7 +272,7 @@ public:
 	 * Blending Weight Calculation Pixel Shader (Second Pass)
 	 *   Just pass zero to subsampleIndices for SMAA 1x, see @SUBSAMPLE_INDICES.
 	 */
-	Col4 blendingWeightCalculation(Int2 texcoord, ImageReader *edgesImage, Vec4 subsampleIndices);
+	void blendingWeightCalculation(int x, int y, ImageReader *edgesImage, float subsampleIndices[4], float weights[4]);
 
 	/*-----------------------------------------------------------------------------*/
 	/* Neighborhood Blending Pixel Shader (Third Pass) */
@@ -280,7 +280,7 @@ public:
 	/**
 	 * Neighborhood Blending Pixel Shader (Third Pass)
 	 */
-	Col4 neighborhoodBlending(Int2 texcoord, ImageReader *colorImage, ImageReader *blendImage);
+	void neighborhoodBlending(int x, int y, ImageReader *colorImage, ImageReader *blendImage, float output[4]);
 
 };
 

@@ -2,10 +2,9 @@
 
 CCXX = g++
 PROG = filter
-TEXGEN=smaa_areatex
-OBJS = filter.o smaa.o smaa_types.o
+TEXGEN = smaa_areatex
+OBJS = filter.o smaa.o
 LIBS = -lm -lpng
-RESULT = invader_result.png
 
 $(PROG): $(OBJS)
 	$(CCXX) -o $@ $^ $(LIBS)

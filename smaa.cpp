@@ -32,10 +32,10 @@ namespace SMAA {
 /*-----------------------------------------------------------------------------*/
 /* Non-Configurable Defines */
 
-#define SMAA_AREATEX_SIZE 80 /* 16 * 5 = 20 * 4 = 80 */
-#define SMAA_AREATEX_MAX_DISTANCE 16
-#define SMAA_AREATEX_MAX_DISTANCE_DIAG 20
-#define SMAA_RGB2BW_WEIGHTS (Col4(0.2126, 0.7152, 0.0722, 0.0))
+static const int SMAA_AREATEX_SIZE = 80; /* 16 * 5 = 20 * 4 = 80 */
+static const int SMAA_AREATEX_MAX_DISTANCE = 16;
+static const int SMAA_AREATEX_MAX_DISTANCE_DIAG = 20;
+static const float RGB_WEIGHTS[3] = {0.2126, 0.7152, 0.0722};
 
 /*-----------------------------------------------------------------------------*/
 /* Misc functions */
@@ -65,58 +65,62 @@ static float bilinear(float c00, float c10, float c01, float c11, float x, float
 	return (c00 * (1.0 - x) + c10 * x) * (1.0 - y) + (c01 * (1.0 - x) + c11 * x) * y;
 }
 
-static float rgb2bw(Col4 color)
+static float rgb2bw(float color[4])
 {
-	return (SMAA_RGB2BW_WEIGHTS.r * color.r +
-		SMAA_RGB2BW_WEIGHTS.g * color.g +
-		SMAA_RGB2BW_WEIGHTS.b * color.b);
+	return RGB_WEIGHTS[0] * color[0] + RGB_WEIGHTS[1] * color[1] + RGB_WEIGHTS[2] * color[2];
 }
 
-static Col4 sample(ImageReader *image, Vec2 texcoord)
+static void sample(ImageReader *image, float x, float y, float output[4])
 {
-	Vec2 i = texcoord.apply(floorf);
-	Vec2 f = texcoord - i;
-	Int2 ii = (Int2)i;
+	float ix = floorf(x), iy = floorf(y);
+	float fx = x - ix, fy = y - iy;
+	int X = (int)ix, Y = (int)iy;
 
-	Col4 color00 = image->getPixel(ii + Int2(0, 0));
-	Col4 color10 = image->getPixel(ii + Int2(1, 0));
-	Col4 color01 = image->getPixel(ii + Int2(0, 1));
-	Col4 color11 = image->getPixel(ii + Int2(1, 1));
+	float color00[4], color10[4], color01[4], color11[4];
 
-	return Col4(bilinear(color00.r, color10.r, color01.r, color11.r, f.x, f.y),
-		    bilinear(color00.g, color10.g, color01.g, color11.g, f.x, f.y),
-		    bilinear(color00.b, color10.b, color01.b, color11.b, f.x, f.y),
-		    bilinear(color00.a, color10.a, color01.a, color11.a, f.x, f.y));
+	image->getPixel(X + 0, Y + 0, color00);
+	image->getPixel(X + 1, Y + 0, color10);
+	image->getPixel(X + 0, Y + 1, color01);
+	image->getPixel(X + 1, Y + 1, color11);
+
+	output[0] = bilinear(color00[0], color10[0], color01[0], color11[0], fx, fy);
+	output[1] = bilinear(color00[1], color10[1], color01[1], color11[1], fx, fy);
+	output[2] = bilinear(color00[2], color10[2], color01[2], color11[2], fx, fy);
+	output[3] = bilinear(color00[3], color10[3], color01[3], color11[3], fx, fy);
 }
 
-static Col4 sampleOffsetVertical(ImageReader *image, Int2 texcoord, float yoffset)
+static void sampleOffsetVertical(ImageReader *image, int x, int y, float yoffset, float output[4])
 {
 	float iy = floorf(yoffset);
 	float fy = yoffset - iy;
-	texcoord.y += (int)iy;
+	y += (int)iy;
 
-	Col4 color00 = image->getPixel(texcoord + Int2(0, 0));
-	Col4 color01 = image->getPixel(texcoord + Int2(0, 1));
+	float color00[4], color01[4];
 
-	return Col4(lerp(color00.r, color01.r, fy),
-		    lerp(color00.g, color01.g, fy),
-		    lerp(color00.b, color01.b, fy),
-		    lerp(color00.a, color01.a, fy));
+	image->getPixel(x + 0, y + 0, color00);
+	image->getPixel(x + 0, y + 1, color01);
+
+	output[0] = lerp(color00[0], color01[0], fy);
+	output[1] = lerp(color00[1], color01[1], fy);
+	output[2] = lerp(color00[2], color01[2], fy);
+	output[3] = lerp(color00[3], color01[3], fy);
 }
 
-static Col4 sampleOffsetHorizontal(ImageReader *image, Int2 texcoord, float xoffset)
+static void sampleOffsetHorizontal(ImageReader *image, int x, int y, float xoffset, float output[4])
 {
 	float ix = floorf(xoffset);
 	float fx = xoffset - ix;
-	texcoord.x += (int)ix;
+	x += (int)ix;
 
-	Col4 color00 = image->getPixel(texcoord + Int2(0, 0));
-	Col4 color10 = image->getPixel(texcoord + Int2(1, 0));
+	float color00[4], color10[4];
 
-	return Col4(lerp(color00.r, color10.r, fx),
-		    lerp(color00.g, color10.g, fx),
-		    lerp(color00.b, color10.b, fx),
-		    lerp(color00.a, color10.a, fx));
+	image->getPixel(x + 0, y + 0, color00);
+	image->getPixel(x + 1, y + 0, color10);
+
+	output[0] = lerp(color00[0], color10[0], fx);
+	output[1] = lerp(color00[1], color10[1], fx);
+	output[2] = lerp(color00[2], color10[2], fx);
+	output[3] = lerp(color00[3], color10[3], fx);
 }
 
 static const float* areatex_sample_internal(const float *areatex, int x, int y)
@@ -125,42 +129,39 @@ static const float* areatex_sample_internal(const float *areatex, int x, int y)
 			 clamp(y, SMAA_AREATEX_SIZE) * SMAA_AREATEX_SIZE) * 2];
 }
 
-static Vec2 areaTexSampleLevelZero(const float *areatex, Vec2 texcoord)
+static void areaTexSampleLevelZero(const float *areatex, float x, float y, float weights[2])
 {
-	Vec2 i = texcoord.apply(floorf);
-	Vec2 f = texcoord - i;
-	int X = (int)i.x, Y = (int)i.y;
+	float ix = floorf(x), iy = floorf(y);
+	float fx = x - ix, fy = y - iy;
+	int X = (int)ix, Y = (int)iy;
 
 	const float *weights00 = areatex_sample_internal(areatex, X + 0, Y + 0);
 	const float *weights10 = areatex_sample_internal(areatex, X + 1, Y + 0);
 	const float *weights01 = areatex_sample_internal(areatex, X + 0, Y + 1);
 	const float *weights11 = areatex_sample_internal(areatex, X + 1, Y + 1);
 
-	return Vec2(bilinear(weights00[0], weights10[0], weights01[0], weights11[0], f.x, f.y),
-		    bilinear(weights00[1], weights10[1], weights01[1], weights11[1], f.x, f.y));
-}
-
-/**
- * Gathers current pixel, and the top-left neighbors.
- */
-static Vec3 gatherNeighbors(Int2 texcoord, ImageReader *image)
-{
-	Vec3 neighbors = {image->getPixel(texcoord).r,
-			  image->getPixel(texcoord + Int2(-1, 0)).r, /* left */
-			  image->getPixel(texcoord + Int2(0, -1)).r}; /* top */
-	return neighbors;
+	weights[0] = bilinear(weights00[0], weights10[0], weights01[0], weights11[0], fx, fy);
+	weights[1] = bilinear(weights00[1], weights10[1], weights01[1], weights11[1], fx, fy);
 }
 
 /**
  * Adjusts the threshold by means of predication.
  */
-Vec2 PixelShader::calculatePredicatedThreshold(Int2 texcoord, ImageReader *predicationImage)
+void PixelShader::calculatePredicatedThreshold(int x, int y, ImageReader *predicationImage, float threshold[2])
 {
-	Vec3 neighbors = gatherNeighbors(texcoord, predicationImage);
-	Vec2 delta = {fabsf(neighbors.x - neighbors.y), fabsf(neighbors.x - neighbors.z)};
-	Vec2 edges = {step(m_predication_threshold, delta.x), step(m_predication_threshold, delta.y)};
-	Vec2 threshold = Vec2(m_predication_scale * m_threshold) * (Vec2(1.0) - Vec2(m_predication_strength) * edges);
-	return threshold;
+	float here[4], left[4], top[4];
+
+	predicationImage->getPixel(x, y, here);
+	predicationImage->getPixel(x - 1, y, left);
+	predicationImage->getPixel(x, y - 1, top);
+
+	float edges[2] = {step(m_predication_threshold, fabsf(here[0] - left[0])),
+			  step(m_predication_threshold, fabsf(here[0] - top[0]))};
+
+	float scaled = m_predication_scale * m_threshold;
+
+	threshold[0] = scaled * (1.0 - m_predication_strength * edges[0]);
+	threshold[1] = scaled * (1.0 - m_predication_strength * edges[1]);
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -172,31 +173,41 @@ Vec2 PixelShader::calculatePredicatedThreshold(Int2 texcoord, ImageReader *predi
  * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
  * thus 'colorImage' should be a non-sRGB image.
  */
-Vec2 PixelShader::lumaEdgeDetection(Int2 texcoord, ImageReader *colorImage, ImageReader *predicationImage)
+void PixelShader::lumaEdgeDetection(int x, int y, ImageReader *colorImage, ImageReader *predicationImage, float edges[4])
 {
-	Vec2 threshold = Vec2(m_threshold);
+	float threshold[2];
+	float color[4];
 
 	/* Calculate the threshold: */
 	if (m_enable_predication && predicationImage)
-		Vec2 threshold = calculatePredicatedThreshold(texcoord, predicationImage);
+		calculatePredicatedThreshold(x, y, predicationImage, threshold);
+	else
+		threshold[0] = threshold[1] = m_threshold;
 
 	/* Calculate lumas: */
-	float L = rgb2bw(colorImage->getPixel(texcoord));
-
-	float Lleft = rgb2bw(colorImage->getPixel(texcoord + Int2(-1, 0)));
-	float Ltop  = rgb2bw(colorImage->getPixel(texcoord + Int2(0, -1)));
+	colorImage->getPixel(x, y, color);
+	float L = rgb2bw(color);
+	colorImage->getPixel(x - 1, y, color);
+	float Lleft = rgb2bw(color);
+	colorImage->getPixel(x, y - 1, color);
+	float Ltop  = rgb2bw(color);
 
 	/* We do the usual threshold: */
 	float delta_x = fabsf(L - Lleft);
 	float delta_y = fabsf(L - Ltop);
-	Vec2 edges = {step(threshold.x, delta_x), step(threshold.y, delta_y)};
+	edges[0] = step(threshold[0], delta_x);
+	edges[1] = step(threshold[1], delta_y);
+	edges[2] = 0.0;
+	edges[3] = 1.0;
 
 	/* Then discard if there is no edge: */
-	if (edges.x != 0.0 || edges.y != 0.0) {
+	if (edges[0] != 0.0 || edges[1] != 0.0) {
 
 		/* Calculate right and bottom deltas: */
-		float Lright = rgb2bw(colorImage->getPixel(texcoord + Int2(1, 0)));
-		float Lbottom = rgb2bw(colorImage->getPixel(texcoord + Int2(0, 1)));
+		colorImage->getPixel(x + 1, y, color);
+		float Lright = rgb2bw(color);
+		colorImage->getPixel(x, y + 1, color);
+		float Lbottom = rgb2bw(color);
 		float delta_z = fabsf(L - Lright);
 		float delta_w = fabsf(L - Lbottom);
 
@@ -205,8 +216,10 @@ Vec2 PixelShader::lumaEdgeDetection(Int2 texcoord, ImageReader *colorImage, Imag
 		float maxDelta_y = fmaxf(delta_y, delta_w);
 
 		/* Calculate left-left and top-top deltas: */
-		float Lleftleft = rgb2bw(colorImage->getPixel(texcoord + Int2(-2, 0)));
-		float Ltoptop = rgb2bw(colorImage->getPixel(texcoord + Int2(0, -2)));
+		colorImage->getPixel(x - 2, y, color);
+		float Lleftleft = rgb2bw(color);
+		colorImage->getPixel(x, y - 2, color);
+		float Ltoptop = rgb2bw(color);
 		delta_z = fabsf(Lleft - Lleftleft);
 		delta_w = fabsf(Ltop - Ltoptop);
 
@@ -217,11 +230,10 @@ Vec2 PixelShader::lumaEdgeDetection(Int2 texcoord, ImageReader *colorImage, Imag
 			float finalDelta = fmaxf(maxDelta_x, maxDelta_y);
 
 			/* Local contrast adaptation: */
-			edges.x *= step(finalDelta, m_local_contrast_adaptation_factor * delta_x);
-			edges.y *= step(finalDelta, m_local_contrast_adaptation_factor * delta_y);
+			edges[0] *= step(finalDelta, m_local_contrast_adaptation_factor * delta_x);
+			edges[1] *= step(finalDelta, m_local_contrast_adaptation_factor * delta_y);
 		}
 	}
-	return edges;
 }
 
 /**
@@ -230,44 +242,50 @@ Vec2 PixelShader::lumaEdgeDetection(Int2 texcoord, ImageReader *colorImage, Imag
  * IMPORTANT NOTICE: color edge detection requires gamma-corrected colors, and
  * thus 'colorImage' should be a non-sRGB image.
  */
-Vec2 PixelShader::colorEdgeDetection(Int2 texcoord, ImageReader *colorImage, ImageReader *predicationImage)
+void PixelShader::colorEdgeDetection(int x, int y, ImageReader *colorImage, ImageReader *predicationImage, float edges[4])
 {
-	Vec2 threshold = {m_threshold, m_threshold};
+	float threshold[2];
 
 	/* Calculate the threshold: */
 	if (m_enable_predication && predicationImage)
-		Vec2 threshold = calculatePredicatedThreshold(texcoord, predicationImage);
+		calculatePredicatedThreshold(x, y, predicationImage, threshold);
+	else
+		threshold[0] = threshold[1] = m_threshold;
 
 	/* Calculate color deltas: */
-	Vec4 delta;
-	Col4 C = colorImage->getPixel(texcoord);
-
-	Col4 Cleft = colorImage->getPixel(texcoord + Int2(-1, 0));
-	Col4 Ctop  = colorImage->getPixel(texcoord + Int2(0, -1));
-	float delta_x = fmaxf(fmaxf(fabsf(C.r - Cleft.r), fabsf(C.g - Cleft.g)), fabsf(C.b - Cleft.b));
-	float delta_y = fmaxf(fmaxf(fabsf(C.r - Ctop.r), fabsf(C.g - Ctop.g)), fabsf(C.b - Ctop.b));
+	float C[4], Cleft[4], Ctop[4];
+	colorImage->getPixel(x, y, C);
+	colorImage->getPixel(x - 1, y, Cleft);
+	colorImage->getPixel(x, y - 1, Ctop);
+	float delta_x = fmaxf(fmaxf(fabsf(C[0] - Cleft[0]), fabsf(C[1] - Cleft[1])), fabsf(C[2] - Cleft[2]));
+	float delta_y = fmaxf(fmaxf(fabsf(C[0] - Ctop[0]), fabsf(C[1] - Ctop[1])), fabsf(C[2] - Ctop[2]));
 
 	/* We do the usual threshold: */
-	Vec2 edges = {step(threshold.x, delta_x), step(threshold.y, delta_y)};
+	edges[0] = step(threshold[0], delta_x);
+	edges[1] = step(threshold[1], delta_y);
+	edges[2] = 0.0;
+	edges[3] = 1.0;
 
 	/* Then discard if there is no edge: */
-	if (edges.x != 0.0 || edges.y != 0.0) {
+	if (edges[0] != 0.0 || edges[1] != 0.0) {
 
 		/* Calculate right and bottom deltas: */
-		Col4 Cright = colorImage->getPixel(texcoord + Int2(1, 0));
-		Col4 Cbottom  = colorImage->getPixel(texcoord + Int2(0, 1));
-		float delta_z = fmaxf(fmaxf(fabsf(C.r - Cright.r), fabsf(C.g - Cright.g)), fabsf(C.b - Cright.b));
-		float delta_w = fmaxf(fmaxf(fabsf(C.r - Cbottom.r), fabsf(C.g - Cbottom.g)), fabsf(C.b - Cbottom.b));
+		float Cright[4], Cbottom[4];
+		colorImage->getPixel(x + 1, y, Cright);
+		colorImage->getPixel(x, y + 1, Cbottom);
+		float delta_z = fmaxf(fmaxf(fabsf(C[0] - Cright[0]), fabsf(C[1] - Cright[1])), fabsf(C[2] - Cright[2]));
+		float delta_w = fmaxf(fmaxf(fabsf(C[0] - Cbottom[0]), fabsf(C[1] - Cbottom[1])), fabsf(C[2] - Cbottom[2]));
 
 		/* Calculate the maximum delta in the direct neighborhood: */
 		float maxDelta_x = fmaxf(delta_x, delta_z);
 		float maxDelta_y = fmaxf(delta_y, delta_w);
 
 		/* Calculate left-left and top-top deltas: */
-		Col4 Cleftleft = colorImage->getPixel(texcoord + Int2(-2, 0));
-		Col4 Ctoptop = colorImage->getPixel(texcoord + Int2(0, -2));
-		delta_z = fmaxf(fmaxf(fabsf(C.r - Cleftleft.r), fabsf(C.g - Cleftleft.g)), fabsf(C.b - Cleftleft.b));
-		delta_w = fmaxf(fmaxf(fabsf(C.r - Ctoptop.r), fabsf(C.g - Ctoptop.g)), fabsf(C.b - Ctoptop.b));
+		float Cleftleft[4], Ctoptop[4];
+		colorImage->getPixel(x - 2, y, Cleftleft);
+		colorImage->getPixel(x, y - 2, Ctoptop);
+		delta_z = fmaxf(fmaxf(fabsf(C[0] - Cleftleft[0]), fabsf(C[1] - Cleftleft[1])), fabsf(C[2] - Cleftleft[2]));
+		delta_w = fmaxf(fmaxf(fabsf(C[0] - Ctoptop[0]), fabsf(C[1] - Ctoptop[1])), fabsf(C[2] - Ctoptop[2]));
 
 		/* Calculate the final maximum delta: */
 		maxDelta_x = fmaxf(maxDelta_x, delta_z);
@@ -276,23 +294,27 @@ Vec2 PixelShader::colorEdgeDetection(Int2 texcoord, ImageReader *colorImage, Ima
 			float finalDelta = fmaxf(maxDelta_x, maxDelta_y);
 
 			/* Local contrast adaptation: */
-			edges.x *= step(finalDelta, m_local_contrast_adaptation_factor * delta_x);
-			edges.y *= step(finalDelta, m_local_contrast_adaptation_factor * delta_y);
+			edges[0] *= step(finalDelta, m_local_contrast_adaptation_factor * delta_x);
+			edges[1] *= step(finalDelta, m_local_contrast_adaptation_factor * delta_y);
 		}
 	}
-	return edges;
 }
 
 /**
  * Depth Edge Detection
  */
-Vec2 PixelShader::depthEdgeDetection(Int2 texcoord, ImageReader *depthImage)
+void PixelShader::depthEdgeDetection(int x, int y, ImageReader *depthImage, float edges[4])
 {
-	Vec3 neighbors = gatherNeighbors(texcoord, depthImage);
-	Vec2 delta = {fabsf(neighbors.x - neighbors.y), fabsf(neighbors.x - neighbors.z)};
-	Vec2 edges = {step(m_depth_threshold, delta.x), step(m_depth_threshold, delta.y)};
+	float here[4], left[4], top[4];
 
-	return edges;
+	depthImage->getPixel(x, y, here);
+	depthImage->getPixel(x - 1, y, left);
+	depthImage->getPixel(x, y - 1, top);
+
+	edges[0] = step(m_depth_threshold, fabsf(here[0] - left[0]));
+	edges[1] = step(m_depth_threshold, fabsf(here[0] - top[0]));
+	edges[2] = 0.0;
+	edges[3] = 1.0;
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -301,375 +323,427 @@ Vec2 PixelShader::depthEdgeDetection(Int2 texcoord, ImageReader *depthImage)
 /**
  * These functions allows to perform diagonal pattern searches.
  */
-Int2 PixelShader::searchDiag1(ImageReader *edgesImage, Int2 texcoord, Int2 dir, /* out */ Vec2 *e)
+int PixelShader::searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int dy, /* out */ float *end, bool *found)
 {
-	Int2 coord = {-1, (int)true};
-	while (coord.x < (m_max_search_steps_diag - 1) &&
-	       coord.y) {
-		texcoord += dir;
-		coord.x += 1;
-		*e = edgesImage->getPixel(texcoord).rg();
-		coord.y = (int)(e->x > 0.9 && e->y > 0.9); /* note: e = 0.0 or 1.0 */
+	float edges[4];
+	int dist = -1;
+	*found = false;
+
+	while (dist < (m_max_search_steps_diag - 1)) {
+		x += dx;
+		y += dy;
+		dist++;
+		edgesImage->getPixel(x, y, edges);
+		if (!(edges[0] > 0.9 && edges[1] > 0.9)) {
+			*found = true;
+			break;
+		}
 	}
-	return coord;
+
+	*end = edges[1];
+	return dist;
 }
 
-Int2 PixelShader::searchDiag2(ImageReader *edgesImage, Int2 texcoord, Int2 dir, /* out */ Vec2 *e)
+int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int dy, /* out */ float *end, bool *found)
 {
-	Int2 coord = {-1, (int)true};
-	while (coord.x < (m_max_search_steps_diag - 1) &&
-	       coord.y) {
-		texcoord += dir;
-		coord.x += 1;
-		*e = Vec2(edgesImage->getPixel(texcoord + Int2(1, 0)).r,
-			  edgesImage->getPixel(texcoord).g);
-		coord.y = (int)(e->x > 0.9 && e->y > 0.9);
+	float edges1[4], edges2[4];
+	int dist = -1;
+	*found = false;
+
+	while (dist < (m_max_search_steps_diag - 1)) {
+		x += dx;
+		y += dy;
+		dist++;
+		edgesImage->getPixel(x + 1, y, edges1);
+		edgesImage->getPixel(x, y, edges2);
+		if (!(edges1[0] > 0.9 && edges2[1] > 0.9)) {
+			*found = true;
+			break;
+		}
 	}
-	return coord;
+
+	*end = edges2[1];
+	return dist;
 }
 
 /**
  * Similar to area(), this calculates the area corresponding to a certain
  * diagonal distance and crossing edges 'e'.
  */
-static Vec2 areaDiag(Int2 dist, Int2 e, float offset)
+static void areaDiag(int d1, int d2, int e1, int e2, float offset, float weights[2])
 {
-	Vec2 texcoord = Vec2(Int2(SMAA_AREATEX_MAX_DISTANCE_DIAG) * e + dist);
+	float x = (float)(SMAA_AREATEX_MAX_DISTANCE_DIAG * e1 + d1);
+	float y = (float)(SMAA_AREATEX_MAX_DISTANCE_DIAG * e2 + d2);
 
 	/* We do a bias for mapping to texel space: */
-	texcoord += Vec2(0.5);
+	x += 0.5;
+	y += 0.5;
 
 	/* Move to proper place, according to the subpixel offset: */
-	texcoord.y += (float)SMAA_AREATEX_SIZE * offset;
+	y += (float)SMAA_AREATEX_SIZE * offset;
 
 	/* Do it! */
-	return areaTexSampleLevelZero(areatex_diag, texcoord);
+	areaTexSampleLevelZero(areatex_diag, x, y, weights);
 }
 
 /**
  * This searches for diagonal patterns and returns the corresponding weights.
  */
-Vec2 PixelShader::calculateDiagWeights(ImageReader *edgesImage, Int2 texcoord, Vec2 e, Vec4 subsampleIndices)
+void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, float e[2], float subsampleIndices[4],
+				       /* out */ float weights[2])
 {
-	Vec2 weights = Vec2(0.0);
+	int d1, d2;
+	bool found1, found2;
+	float end, edges[4];
+
+	weights[0] = weights[1] = 0.0;
 
 	/* Search for the line ends: */
-	Int2 d1, d2;
-	Vec2 end;
-	if (e.x > 0.0) {
-		d1 = searchDiag1(edgesImage, texcoord, Int2(-1, 1), &end);
-		d1.x += (int)end.y;
-	} else
-		d1 = Int2(0, (int)false);
-	d2 = searchDiag1(edgesImage, texcoord, Int2(1, -1), &end);
+	if (e[0] > 0.0) {
+		d1 = searchDiag1(edgesImage, x, y, -1, 1, &end, &found1);
+		d1 += (int)end;
+	} else {
+		d1 = 0;
+		found1 = true;
+	}
+	d2 = searchDiag1(edgesImage, x, y, 1, -1, &end, &found2);
 
-	if (d1.x + d2.x > 2) { /* d.x + d.y + 1 > 3 */
-		Int2 cc = Int2(0);
-		if (!(bool)d1.y) {
+	if (d1 + d2 > 2) { /* d1 + d2 + 1 > 3 */
+		int c[2];
+		int e1 = 0, e2 = 0;
+		if (found1) {
 			/* Fetch the crossing edges: */
-			Int2 coords = texcoord + Int2(-d1.x, d1.x);
-			Int2 c = (Int2)Vec2(edgesImage->getPixel(coords + Int2(-1,  0)).g,
-					    edgesImage->getPixel(coords + Int2( 0,  0)).r);
+			int co_x = x - d1, co_y = y + d1;
+			edgesImage->getPixel(co_x - 1, co_y, edges);
+			c[0] = (int)edges[1];
+			edgesImage->getPixel(co_x, co_y, edges);
+			c[1] = (int)edges[0];
 
 			/* Merge crossing edges at each side into a single value: */
-			cc.x = 2 * c.x + c.y;
+			e1 = 2 * c[0] + c[1];
 		}
-		if (!(bool)d2.y) {
+		if (found2) {
 			/* Fetch the crossing edges: */
-			Int2 coords = texcoord + Int2(d2.x, -d2.x);
-			Int2 c = (Int2)Vec2(edgesImage->getPixel(coords + Int2( 1,  0)).g,
-					    edgesImage->getPixel(coords + Int2( 1, -1)).r);
+			int co_x = x + d2, co_y = y - d2;
+			edgesImage->getPixel(co_x + 1, co_y, edges);
+			c[0] = (int)edges[1];
+			edgesImage->getPixel(co_x + 1, co_y - 1, edges);
+			c[1] = (int)edges[0];
 
 			/* Merge crossing edges at each side into a single value: */
-			cc.y = 2 * c.x + c.y;
+			e2 = 2 * c[0] + c[1];
 		}
 
 		/* Fetch the areas for this line: */
-		weights += areaDiag(Int2(d1.x, d2.x), cc, subsampleIndices.z);
+		areaDiag(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[2] : 0.0), weights);
 	}
 
 	/* Search for the line ends: */
-	d1 = searchDiag2(edgesImage, texcoord, Int2(-1, -1), &end);
-	if (edgesImage->getPixel(texcoord + Int2(1, 0)).r > 0.0) {
-		d2 = searchDiag2(edgesImage, texcoord, Int2(1, 1), &end);
-		d2.x += (int)end.y;
-	} else
-		d2 = Int2(0, (int)false);
+	d1 = searchDiag2(edgesImage, x, y, -1, -1, &end, &found1);
+	edgesImage->getPixel(x + 1, y, edges);
+	if (edges[0] > 0.0) {
+		d2 = searchDiag2(edgesImage, x, y, 1, 1, &end, &found2);
+		d2 += (int)end;
+	} else {
+		d2 = 0;
+		found2 = true;
+	}
 
-	if (d1.x + d2.x > 2) { /* d.x + d.y + 1 > 3 */
-		Int2 cc = Int2(0);
-		if (!(bool)d1.y) {
+	if (d1 + d2 > 2) { /* d1 + d2 + 1 > 3 */
+		int c[2];
+		int e1 = 0, e2 = 0;
+		if (found1) {
 			/* Fetch the crossing edges: */
-			Int2 coords = texcoord + Int2(-d1.x, -d1.x);
-			Int2 c = (Int2)Vec2(edgesImage->getPixel(coords + Int2(-1,  0)).g,
-					    edgesImage->getPixel(coords + Int2( 0, -1)).r);
-			cc.x = 2 * c.x + c.y;
+			int co_x = x - d1, co_y = y - d1;
+			edgesImage->getPixel(co_x - 1, co_y, edges);
+			c[0] = (int)edges[1];
+			edgesImage->getPixel(co_x, co_y - 1, edges);
+			c[1] = (int)edges[0];
+			e1 = 2 * c[0] + c[1];
 		}
-		if (!(bool)d2.y) {
-			Int2 coords = texcoord + Int2(d2.x, d2.x);
-			Int2 c = edgesImage->getPixel(coords + Int2( 1,  0)).gr();
-			cc.y = 2 * c.x + c.y;
+		if (found2) {
+			int co_x = x + d2, co_y = y + d2;
+			edgesImage->getPixel(co_x + 1, co_y, edges);
+			c[0] = (int)edges[1];
+			c[1] = (int)edges[0];
+			e2 = 2 * c[0] + c[1];
 		}
 
 		/* Fetch the areas for this line: */
-		weights += areaDiag(Int2(d1.x, d2.x), cc, subsampleIndices.w).yx();
+		float w[2];
+		areaDiag(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[3] : 0.0), w);
+		weights[0] += w[1];
+		weights[1] += w[0];
 	}
-
-	return weights;
 }
 
 /*-----------------------------------------------------------------------------*/
 /* Horizontal/Vertical Search Functions */
 
-int PixelShader::searchXLeft(ImageReader *edgesImage, Int2 texcoord)
+int PixelShader::searchXLeft(ImageReader *edgesImage, int x, int y)
 {
-	int end = texcoord.x - 2 * m_max_search_steps;
-	Col4 e;
-	while (texcoord.x >= end) {
-		e = edgesImage->getPixel(texcoord);
-		if (e.g == 0.0 || /* Is the edge not activated? */
-		    e.r != 0.0 || /* Or is there a crossing edge that breaks the line? */
-		    edgesImage->getPixel(texcoord + Int2(0, -1)).r != 0.0)
+	int end = x - 2 * m_max_search_steps - 1;
+	float edges[4];
+
+	while (x >= end) {
+		edgesImage->getPixel(x, y, edges);
+		if (edges[1] == 0.0 || /* Is the edge not activated? */
+		    edges[0] != 0.0)   /* Or is there a crossing edge that breaks the line? */
 			break;
-		texcoord.x += -1;
-		e = edgesImage->getPixel(texcoord);
-		if (e.g == 0.0 || /* Is the edge not activated? */
-		    e.r != 0.0 || /* Or is there a crossing edge that breaks the line? */
-		    edgesImage->getPixel(texcoord + Int2(0, -1)).r != 0.0)
+		edgesImage->getPixel(x, y - 1, edges);
+		if (edges[0] != 0.0)
 			break;
-		texcoord.x += -1;
+		x--;
 	}
-	return texcoord.x;
+
+	return x;
 }
 
-int PixelShader::searchXRight(ImageReader *edgesImage, Int2 texcoord)
+int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
 {
-	int end = texcoord.x + 2 * m_max_search_steps + 1;
-	Col4 e;
-	while (texcoord.x <= end) {
-		texcoord.x += 1;
-		e = edgesImage->getPixel(texcoord);
-		if (e.g == 0.0 || /* Is the edge not activated? */
-		    e.r != 0.0 || /* Or is there a crossing edge that breaks the line? */
-		    edgesImage->getPixel(texcoord + Int2(0, -1)).r != 0.0)
+	int end = x + 2 * m_max_search_steps + 1;
+	float edges[4];
+
+	while (x <= end) {
+		x++;
+		edgesImage->getPixel(x, y, edges);
+		if (edges[1] == 0.0 || /* Is the edge not activated? */
+		    edges[0] != 0.0)   /* Or is there a crossing edge that breaks the line? */
 			break;
-		texcoord.x += 1;
-		e = edgesImage->getPixel(texcoord);
-		if (e.g == 0.0 || /* Is the edge not activated? */
-		    e.r != 0.0 || /* Or is there a crossing edge that breaks the line? */
-		    edgesImage->getPixel(texcoord + Int2(0, -1)).r != 0.0)
+		edgesImage->getPixel(x, y - 1, edges);
+		if (edges[0] != 0.0)
 			break;
 	}
-	return texcoord.x - 1;
+
+	return x - 1;
 }
 
-int PixelShader::searchYUp(ImageReader *edgesImage, Int2 texcoord)
+int PixelShader::searchYUp(ImageReader *edgesImage, int x, int y)
 {
-	int end = texcoord.y - 2 * m_max_search_steps;
-	Col4 e;
-	while (texcoord.y >= end) {
-		e = edgesImage->getPixel(texcoord);
-		if (e.r == 0.0 || /* Is the edge not activated? */
-		    e.g != 0.0 || /* Or is there a crossing edge that breaks the line? */
-		    edgesImage->getPixel(texcoord + Int2(-1, 0)).g != 0.0)
+	int end = y - 2 * m_max_search_steps - 1;
+	float edges[4];
+
+	while (y >= end) {
+		edgesImage->getPixel(x, y, edges);
+		if (edges[0] == 0.0 || /* Is the edge not activated? */
+		    edges[1] != 0.0)   /* Or is there a crossing edge that breaks the line? */
 			break;
-		texcoord.y += -1;
-		e = edgesImage->getPixel(texcoord);
-		if (e.r == 0.0 || /* Is the edge not activated? */
-		    e.g != 0.0 || /* Or is there a crossing edge that breaks the line? */
-		    edgesImage->getPixel(texcoord + Int2(-1, 0)).g != 0.0)
+		edgesImage->getPixel(x - 1, y, edges);
+		if (edges[1] != 0.0)
 			break;
-		texcoord.y += -1;
+		y--;
 	}
-	return texcoord.y;
+
+	return y;
 }
 
-int PixelShader::searchYDown(ImageReader *edgesImage, Int2 texcoord)
+int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
 {
-	int end = texcoord.y + 2 * m_max_search_steps + 1;
-	Col4 e;
-	while (texcoord.y <= end) {
-		texcoord.y += 1;
-		e = edgesImage->getPixel(texcoord);
-		if (e.r == 0.0 || /* Is the edge not activated? */
-		    e.g != 0.0 || /* Or is there a crossing edge that breaks the line? */
-		    edgesImage->getPixel(texcoord + Int2(-1, 0)).g != 0.0)
+	int end = y + 2 * m_max_search_steps + 1;
+	float edges[4];
+
+	while (y <= end) {
+		y++;
+		edgesImage->getPixel(x, y, edges);
+		if (edges[0] == 0.0 || /* Is the edge not activated? */
+		    edges[1] != 0.0)   /* Or is there a crossing edge that breaks the line? */
 			break;
-		texcoord.y += 1;
-		e = edgesImage->getPixel(texcoord);
-		if (e.r == 0.0 || /* Is the edge not activated? */
-		    e.g != 0.0 || /* Or is there a crossing edge that breaks the line? */
-		    edgesImage->getPixel(texcoord + Int2(-1, 0)).g != 0.0)
+		edgesImage->getPixel(x - 1, y, edges);
+		if (edges[1] != 0.0)
 			break;
 	}
-	return texcoord.y - 1;
+
+	return y - 1;
 }
 
 /**
  * Ok, we have the distance and both crossing edges. So, what are the areas
  * at each side of current edge?
  */
-static Vec2 area(Vec2 dist, float e1, float e2, float offset)
+static void area(float dist[2], float e1, float e2, float offset, float weights[2])
 {
 	/* Rounding prevents precision errors of bilinear filtering: */
-	Vec2 texcoord = Vec2(SMAA_AREATEX_MAX_DISTANCE) * (Vec2(4.0) * Vec2(e1, e2)).apply(roundf) + dist;
+	float x = (float)SMAA_AREATEX_MAX_DISTANCE * roundf(4.0 * e1) + dist[0];
+	float y = (float)SMAA_AREATEX_MAX_DISTANCE * roundf(4.0 * e2) + dist[1];
 
 	/* We do a bias for mapping to texel space: */
-	texcoord += Vec2(0.5);
+	x += 0.5;
+	y += 0.5;
 
 	/* Move to proper place, according to the subpixel offset: */
-	texcoord.y += (float)SMAA_AREATEX_SIZE * offset;
+	y += (float)SMAA_AREATEX_SIZE * offset;
 
 	/* Do it! */
-	return areaTexSampleLevelZero(areatex, texcoord);
+	areaTexSampleLevelZero(areatex, x, y, weights);
 }
 
 /*-----------------------------------------------------------------------------*/
 /*  Corner Detection Functions */
 
-void PixelShader::detectHorizontalCornerPattern(ImageReader *edgesImage, /* inout */ Col4 *weights,
-						int left, int right, int y, Int2 d)
+void PixelShader::detectHorizontalCornerPattern(ImageReader *edgesImage, /* inout */ float weights[4],
+						int left, int right, int y, int d[2])
 {
-	Vec2 factor = Vec2(1.0);
+	float factor[2] = {1.0, 1.0};
 	float rounding = 1.0 - (float)m_corner_rounding / 100.0;
+	float edges[4];
 
 	/* Reduce blending for pixels in the center of a line. */
-	rounding *= (d.x == d.y) ? 0.5 : 1.0;
+	rounding *= (d[0] == d[1]) ? 0.5 : 1.0;
 
 	/* Near the left corner */
-	if (d.x <= d.y) {
-		factor -= Vec2(rounding) * Vec2(edgesImage->getPixel(Int2(left, y) + Int2(0,  1)).r,
-						edgesImage->getPixel(Int2(left, y) + Int2(0, -2)).r);
+	if (d[0] <= d[1]) {
+		edgesImage->getPixel(left, y + 1, edges);
+		factor[0] -= rounding * edges[0];
+		edgesImage->getPixel(left, y - 2, edges);
+		factor[1] -= rounding * edges[0];
 	}
 	/* Near the right corner */
-	if (d.x >= d.y) {
-		factor -= Vec2(rounding) * Vec2(edgesImage->getPixel(Int2(right, y) + Int2(1,  1)).r,
-						edgesImage->getPixel(Int2(right, y) + Int2(1, -2)).r);
+	if (d[0] >= d[1]) {
+		edgesImage->getPixel(right + 1, y + 1, edges);
+		factor[0] -= rounding * edges[0];
+		edgesImage->getPixel(right + 1, y - 2, edges);
+		factor[1] -= rounding * edges[0];
 	}
 
-	weights->r *= saturate(factor.x);
-	weights->g *= saturate(factor.y);
+	weights[0] *= saturate(factor[0]);
+	weights[1] *= saturate(factor[1]);
 }
 
-void PixelShader::detectVerticalCornerPattern(ImageReader *edgesImage, /* inout */ Col4 *weights,
-					      int top, int bottom, int x, Int2 d)
+void PixelShader::detectVerticalCornerPattern(ImageReader *edgesImage, /* inout */ float weights[4],
+					      int top, int bottom, int x, int d[2])
 {
-	Vec2 factor = Vec2(1.0);
+	float factor[2] = {1.0, 1.0};
 	float rounding = 1.0 - (float)m_corner_rounding / 100.0;
+	float edges[4];
 
 	/* Reduce blending for pixels in the center of a line. */
-	rounding *= (d.x == d.y) ? 0.5 : 1.0;
+	rounding *= (d[0] == d[1]) ? 0.5 : 1.0;
 
 	/* Near the top corner */
-	if (d.x <= d.y) {
-		factor -= Vec2(rounding) * Vec2(edgesImage->getPixel(Int2(x, top) + Int2( 1, 0)).g,
-						edgesImage->getPixel(Int2(x, top) + Int2(-2, 0)).g);
+	if (d[0] <= d[1]) {
+		edgesImage->getPixel(x + 1, top, edges);
+		factor[0] -= rounding * edges[1];
+		edgesImage->getPixel(x - 2, top, edges);
+		factor[1] -= rounding * edges[1];
 	}
 	/* Near the bottom corner */
-	if (d.x >= d.y) {
-		factor -= Vec2(rounding) * Vec2(edgesImage->getPixel(Int2(x, bottom) + Int2( 1, 1)).g,
-						edgesImage->getPixel(Int2(x, bottom) + Int2(-2, 1)).g);
+	if (d[0] >= d[1]) {
+		edgesImage->getPixel(x + 1, bottom + 1, edges);
+		factor[0] -= rounding * edges[1];
+		edgesImage->getPixel(x - 2, bottom + 1, edges);
+		factor[1] -= rounding * edges[1];
 	}
 
-	weights->b *= saturate(factor.x);
-	weights->a *= saturate(factor.y);
+	weights[2] *= saturate(factor[0]);
+	weights[3] *= saturate(factor[1]);
 }
 
 /*-----------------------------------------------------------------------------*/
 /* Blending Weight Calculation Pixel Shader (Second Pass) */
 /*   Just pass zero to subsampleIndices for SMAA 1x, see @SUBSAMPLE_INDICES. */
 
-Col4 PixelShader::blendingWeightCalculation(Int2 texcoord, ImageReader *edgesImage, Vec4 subsampleIndices)
+void PixelShader::blendingWeightCalculation(int x, int y, ImageReader *edgesImage, float subsampleIndices[4], float weights[4])
 {
-	Col4 weights = Col4(0.0);
-	Vec2 w;
+	float w[2], edges[4];
 
-	Vec2 e = edgesImage->getPixel(texcoord).rg();
+	weights[0] = weights[1] = weights[2] = weights[3] = 0.0;
+	edgesImage->getPixel(x, y, edges);
 
-	if (e.y > 0.0) { /* Edge at north */
+	if (edges[1] > 0.0) { /* Edge at north */
 		if (m_enable_diag_detection) {
 			/* Diagonals have both north and west edges, so searching for them in */
 			/* one of the boundaries is enough. */
-			w = calculateDiagWeights(edgesImage, texcoord, e, subsampleIndices);
-			weights.r = w.x;
-			weights.g = w.y;
+			calculateDiagWeights(edgesImage, x, y, edges, subsampleIndices, w);
 
 			/* We give priority to diagonals, so if we find a diagonal we skip  */
 			/* horizontal/vertical processing. */
-			if (weights.r + weights.g != 0.0)
-				return weights;
+			if (w[0] + w[1] != 0.0) {
+				weights[0] = w[0];
+				weights[1] = w[1];
+				return;
+			}
 		}
 
 		/* Find the distance to the left and the right: */
-		int left = searchXLeft(edgesImage, texcoord);
-		int right = searchXRight(edgesImage, texcoord);
-		Int2 d = Int2(left - texcoord.x, right - texcoord.x).apply(abs);
+		int left = searchXLeft(edgesImage, x, y);
+		int right = searchXRight(edgesImage, x, y);
+		int d[2] = {abs(left - x), abs(right - x)};
 
 		/* Now fetch the left and right crossing edges, two at a time using bilinear */
 		/* filtering. Sampling at -0.25 enables to discern what value each edge has: */
-		float e1 = sampleOffsetVertical(edgesImage, Int2(left, texcoord.y), -0.25).r;
-		float e2 = sampleOffsetVertical(edgesImage, Int2(right + 1, texcoord.y), -0.25).r;
+		float edges[4];
+		sampleOffsetVertical(edgesImage, left, y, -0.25, edges);
+		float e1 = edges[0];
+		sampleOffsetVertical(edgesImage, right + 1, y, -0.25, edges);
+		float e2 = edges[0];
 
 		/* area() below needs a sqrt, as the areas texture is compressed */
 		/* quadratically: */
-		Vec2 sqrt_d = Vec2(d).apply(sqrtf);
+		float sqrt_d[2] = {sqrtf((float)d[0]), sqrtf((float)d[1])};
 
 		/* Ok, we know how this pattern looks like, now it is time for getting */
 		/* the actual area: */
-		w = area(sqrt_d, e1, e2, subsampleIndices.y);
-		weights.r = w.x;
-		weights.g = w.y;
+		area(sqrt_d, e1, e2, (subsampleIndices ? subsampleIndices[1] : 0.0), w);
+		weights[0] = w[0];
+		weights[1] = w[1];
 
 		/* Fix corners: */
 		if (m_enable_corner_detection)
-			detectHorizontalCornerPattern(edgesImage, &weights, left, right, texcoord.y, d);
+			detectHorizontalCornerPattern(edgesImage, weights, left, right, y, d);
 	}
 
-	if (e.x > 0.0) { /* Edge at west */
+	if (edges[0] > 0.0) { /* Edge at west */
 
 		/* Find the distance to the top and the bottom: */
-		int top = searchYUp(edgesImage, texcoord);
-		int bottom = searchYDown(edgesImage, texcoord);
-		Int2 d = Int2(top - texcoord.y, bottom - texcoord.y).apply(abs);
+		int top = searchYUp(edgesImage, x, y);
+		int bottom = searchYDown(edgesImage, x, y);
+		int d[2] = {abs(top - y), abs(bottom - y)};
 
 		/* Fetch the top ang bottom crossing edges: */
-		float e1 = sampleOffsetHorizontal(edgesImage, Int2(texcoord.x, top), -0.25).g;
-		float e2 = sampleOffsetHorizontal(edgesImage, Int2(texcoord.x, bottom + 1), -0.25).g;
+		float edges[4];
+		sampleOffsetHorizontal(edgesImage, x, top, -0.25, edges);
+		float e1 = edges[1];
+		sampleOffsetHorizontal(edgesImage, x, bottom + 1, -0.25, edges);
+		float e2 = edges[1];
 
 		/* area() below needs a sqrt, as the areas texture is compressed  */
 		/* quadratically: */
-		Vec2 sqrt_d = Vec2(d).apply(sqrtf);
+		float sqrt_d[2] = {sqrtf((float)d[0]), sqrtf((float)d[1])};
 
 		/* Get the area for this direction: */
-		w = area(sqrt_d, e1, e2, subsampleIndices.x);
-		weights.b = w.x;
-		weights.a = w.y;
+		area(sqrt_d, e1, e2, (subsampleIndices ? subsampleIndices[0] : 0.0), w);
+		weights[2] = w[0];
+		weights[3] = w[1];
 
 		/* Fix corners: */
 		if (m_enable_corner_detection)
-			detectVerticalCornerPattern(edgesImage, &weights, top, bottom, texcoord.x, d);
+			detectVerticalCornerPattern(edgesImage, weights, top, bottom, x, d);
 	}
-
-	return weights;
 }
 
 /*-----------------------------------------------------------------------------*/
 /* Neighborhood Blending Pixel Shader (Third Pass) */
 
-Col4 PixelShader::neighborhoodBlending(Int2 texcoord, ImageReader *colorImage, ImageReader *blendImage)
+void PixelShader::neighborhoodBlending(int x, int y, ImageReader *colorImage, ImageReader *blendImage, float output[4])
 {
+	float w[4];
+
 	/* Fetch the blending weights for current pixel: */
-	Col4 c = blendImage->getPixel(texcoord);
-	float left = c.b, top = c.r;
-	float right = blendImage->getPixel(texcoord + Int2(1, 0)).a;
-	float bottom = blendImage->getPixel(texcoord + Int2(0, 1)).g;
+	blendImage->getPixel(x, y, w);
+	float left = w[2], top = w[0];
+	blendImage->getPixel(x + 1, y , w);
+	float right = w[3];
+	blendImage->getPixel(x, y + 1, w);
+	float bottom = w[1];
 
 	/* Is there any blending weight with a value greater than 0.0? */
-	if (right + bottom + left + top < 1e-5)
-		return colorImage->getPixel(texcoord);
+	if (right + bottom + left + top < 1e-5) {
+		colorImage->getPixel(x, y, output);
+		return;
+	}
 
 	/* Calculate the blending offsets: */
-	Col4 (*samplefunc)(ImageReader *image, Int2 texcoord, float offset);
+	void (*samplefunc)(ImageReader *image, int x, int y, float offset, float output[4]);
 	float offset1, offset2, weight1, weight2;
 
 	if (fmaxf(right, left) > fmaxf(bottom, top)) { /* max(horizontal) > max(vertical) */
@@ -687,10 +761,14 @@ Col4 PixelShader::neighborhoodBlending(Int2 texcoord, ImageReader *colorImage, I
 	}
 
 	/* We exploit bilinear filtering to mix current pixel with the chosen neighbor: */
-	Col4 color1 = samplefunc(colorImage, texcoord, offset1);
-	Col4 color2 = samplefunc(colorImage, texcoord, offset2);
+	float color1[4], color2[4];
+	samplefunc(colorImage, x, y, offset1, color1);
+	samplefunc(colorImage, x, y, offset2, color2);
 
-	return (Col4(weight1) * color1 + Col4(weight2) * color2);
+	output[0] = weight1 * color1[0] + weight2 * color2[0];
+	output[1] = weight1 * color1[1] + weight2 * color2[1];
+	output[2] = weight1 * color1[2] + weight2 * color2[2];
+	output[3] = weight1 * color1[3] + weight2 * color2[3];
 }
 
 /*-----------------------------------------------------------------------------*/

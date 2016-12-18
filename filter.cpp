@@ -169,9 +169,11 @@ void process_file(void)
 	using namespace SMAA;
 
 	Image *orignImage, *edgesImage, *blendImage, *finalImage;
-	Col4 color;
+	float color[4], edges[4], weights[4];
 
 	PixelShader ps(CONFIG_PRESET_HIGH);
+	//ps.setEnableDiagDetection(false);
+	//ps.setEnableCornerDetection(false);
 
 	try {
 		orignImage = new Image(width, height);
@@ -184,11 +186,11 @@ void process_file(void)
 	for (int y = 0; y < height; y++) {
 		png_byte* ptr = row_pointers[y];
 		for (int x = 0; x < width; x++) {
-			color.r = (float)*ptr++ / 255.0;
-			color.g = (float)*ptr++ / 255.0;
-			color.b = (float)*ptr++ / 255.0;
-			color.a = (float)*ptr++ / 255.0;
-			orignImage->putPixel(Int2(x, y), color);
+			color[0] = (float)*ptr++ / 255.0;
+			color[1] = (float)*ptr++ / 255.0;
+			color[2] = (float)*ptr++ / 255.0;
+			color[3] = (float)*ptr++ / 255.0;
+			orignImage->putPixel(x, y, color);
 		}
 	}
 
@@ -196,22 +198,22 @@ void process_file(void)
 
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			edgesImage->putPixel(Int2(x, y),
-					     Col4(ps.colorEdgeDetection(Int2(x, y), orignImage, NULL), Vec2(0.0, 1.0)));
+			ps.colorEdgeDetection(x, y, orignImage, NULL, edges);
+			edgesImage->putPixel(x, y, edges);
 		}
 	}
 
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			blendImage->putPixel(Int2(x, y),
-					     ps.blendingWeightCalculation(Int2(x, y), edgesImage, Vec4(0.0)));
+			ps.blendingWeightCalculation(x, y, edgesImage, NULL, weights);
+			blendImage->putPixel(x, y, weights);
 		}
 	}
 
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			finalImage->putPixel(Int2(x, y),
-					     ps.neighborhoodBlending(Int2(x, y), orignImage, blendImage));
+			ps.neighborhoodBlending(x, y, orignImage, blendImage, color);
+			finalImage->putPixel(x, y, color);
 		}
 	}
 
@@ -220,14 +222,14 @@ void process_file(void)
 	for (int y = 0; y < height; y++) {
 		png_byte* ptr = row_pointers[y];
 		for (int x = 0; x < width; x++) {
-			//color = orignImage->sample(Int2(x, y));
-			//color = edgesImage->sample(Int2(x, y));
-			//color = blendImage->sample(Int2(x, y));
-			color = finalImage->getPixel(Int2(x, y));
-			*ptr++ = (png_byte)roundf(color.r * 255.0);
-			*ptr++ = (png_byte)roundf(color.g * 255.0);
-			*ptr++ = (png_byte)roundf(color.b * 255.0);
-			*ptr++ = (png_byte)roundf(color.a * 255.0);
+			//orignImage->getPixel(x, y, color);
+			//edgesImage->getPixel(x, y, color);
+			//blendImage->getPixel(x, y, color);
+			finalImage->getPixel(x, y, color);
+			*ptr++ = (png_byte)roundf(color[0] * 255.0);
+			*ptr++ = (png_byte)roundf(color[1] * 255.0);
+			*ptr++ = (png_byte)roundf(color[2] * 255.0);
+			*ptr++ = (png_byte)roundf(color[3] * 255.0);
 		}
 	}
 
