@@ -169,7 +169,7 @@ public:
 	 * perfectly handled by, for example 16, is 64 (by perfectly, we meant that
 	 * longer lines won't look as good, but still antialiased).
 	 *
-	 * Range: [0, 112]
+	 * Range: [0, 104]  (max < (14.5^2 - 2) / 2 = 104.25)
 	 */
 	void setMaxSearchSteps(int steps) { m_max_search_steps = steps; };
 	/**
@@ -177,7 +177,7 @@ public:
 	 * diagonal pattern searches, at each side of the pixel. In this case we jump
 	 * one pixel at time, instead of two.
 	 *
-	 * Range: [0, 20]
+	 * Range: [0, 18]  (max < 18.5)
 	 *
 	 * On high-end machines it is cheap (between a 0.8x and 0.9x slower for 16
 	 * steps), but it can have a significant impact on older machines.
