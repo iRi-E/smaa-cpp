@@ -328,6 +328,15 @@ void PixelShader::depthEdgeDetection(int x, int y,
 /*-----------------------------------------------------------------------------*/
 /* Diagonal Search Functions */
 
+/*
+ * Note: Edges around a pixel (x, y)
+ *
+ *  - west  (left)  : R in (x, y)
+ *  - north (top)   : G in (x, y)
+ *  - east  (right) : R in (x + 1, y)
+ *  - south (bottom): G in (x, y +1)
+ */
+
 /**
  * These functions allows to perform diagonal pattern searches.
  */
@@ -342,14 +351,14 @@ int PixelShader::searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int 
 		x += dx;
 		y += dy;
 		dist++;
-		edgesImage->getPixel(x, y, edges);
+		edgesImage->getPixel(x, y, edges); /* west & north */
 		if (!(edges[0] > 0.9 && edges[1] > 0.9)) {
 			*found = true;
 			break;
 		}
 	}
 
-	*end = edges[1];
+	*end = edges[1]; /* return north */
 	return dist;
 }
 
@@ -364,15 +373,15 @@ int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int 
 		x += dx;
 		y += dy;
 		dist++;
-		edgesImage->getPixel(x + 1, y, edges1);
-		edgesImage->getPixel(x, y, edges2);
+		edgesImage->getPixel(x + 1, y, edges1); /* east */
+		edgesImage->getPixel(x, y, edges2);     /* north */
 		if (!(edges1[0] > 0.9 && edges2[1] > 0.9)) {
 			*found = true;
 			break;
 		}
 	}
 
-	*end = edges2[1];
+	*end = edges2[1]; /* return north */
 	return dist;
 }
 
@@ -411,10 +420,29 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 	weights[0] = weights[1] = 0.0;
 
 	/* Search for the line ends: */
+	/*
+	 *                        |
+	 *                     2--3
+	 *                     |
+	 *                  1--2
+	 *                  |    d2
+	 *               0--1
+	 *               |
+	 *            0==0   Start from both ends of (x, y)'s north edge
+	 *            |xy
+	 *         1--0
+	 *   d1    |
+	 *      2--1
+	 *      |
+	 *   3--2
+	 *   |
+	 *
+	 */
 	if (e[0] > 0.0) {
 		d1 = searchDiag1(edgesImage, x, y, -1, 1, &end, &found1);
-		d1 += (int)end;
-	} else {
+		d1 += (int)end; /* Increment d1 if ended with north edge */
+	}
+	else {
 		d1 = 0;
 		found1 = true;
 	}
@@ -427,9 +455,9 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 			/* Fetch the crossing edges: */
 			int co_x = x - d1, co_y = y + d1;
 			edgesImage->getPixel(co_x - 1, co_y, edges);
-			c[0] = (int)edges[1];
+			c[0] = (int)edges[1]; /* ...->down->left->left */
 			edgesImage->getPixel(co_x, co_y, edges);
-			c[1] = (int)edges[0];
+			c[1] = (int)edges[0]; /* ...->left->down->down */
 
 			/* Merge crossing edges at each side into a single value: */
 			e1 = 2 * c[0] + c[1];
@@ -438,9 +466,9 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 			/* Fetch the crossing edges: */
 			int co_x = x + d2, co_y = y - d2;
 			edgesImage->getPixel(co_x + 1, co_y, edges);
-			c[0] = (int)edges[1];
+			c[0] = (int)edges[1]; /* ...->up->right->right */
 			edgesImage->getPixel(co_x + 1, co_y - 1, edges);
-			c[1] = (int)edges[0];
+			c[1] = (int)edges[0]; /* ...->right->up->up */
 
 			/* Merge crossing edges at each side into a single value: */
 			e2 = 2 * c[0] + c[1];
@@ -451,12 +479,31 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 	}
 
 	/* Search for the line ends: */
+	/*
+	 *   |
+	 *   3--2
+	 *      |
+	 *      2--1
+	 *   d1    |
+	 *         1--0
+	 *            |
+	 *            0==0   Start from both ends of (x, y)'s north edge
+	 *             xy|
+	 *               0--1
+	 *                  |    d2
+	 *                  1--2
+	 *                     |
+	 *                     2--3
+	 *                        |
+	 *
+	 */
 	d1 = searchDiag2(edgesImage, x, y, -1, -1, &end, &found1);
 	edgesImage->getPixel(x + 1, y, edges);
 	if (edges[0] > 0.0) {
 		d2 = searchDiag2(edgesImage, x, y, 1, 1, &end, &found2);
-		d2 += (int)end;
-	} else {
+		d2 += (int)end; /* Increment d2 if ended with north edge */
+	}
+	else {
 		d2 = 0;
 		found2 = true;
 	}
@@ -468,16 +515,16 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 			/* Fetch the crossing edges: */
 			int co_x = x - d1, co_y = y - d1;
 			edgesImage->getPixel(co_x - 1, co_y, edges);
-			c[0] = (int)edges[1];
+			c[0] = (int)edges[1]; /* ...->up->left->left */
 			edgesImage->getPixel(co_x, co_y - 1, edges);
-			c[1] = (int)edges[0];
+			c[1] = (int)edges[0]; /* ...->left->up->up */
 			e1 = 2 * c[0] + c[1];
 		}
 		if (found2) {
 			int co_x = x + d2, co_y = y + d2;
 			edgesImage->getPixel(co_x + 1, co_y, edges);
-			c[0] = (int)edges[1];
-			c[1] = (int)edges[0];
+			c[0] = (int)edges[1]; /* ...->down->right->right */
+			c[1] = (int)edges[0]; /* ...->right->down->down */
 			e2 = 2 * c[0] + c[1];
 		}
 
@@ -500,10 +547,10 @@ int PixelShader::searchXLeft(ImageReader *edgesImage, int x, int y)
 	while (x >= end) {
 		edgesImage->getPixel(x, y, edges);
 		if (edges[1] == 0.0 || /* Is the edge not activated? */
-		    edges[0] != 0.0)   /* Or is there a crossing edge that breaks the line? */
+		    edges[0] != 0.0)   /* Or is there a bottom crossing edge that breaks the line? */
 			break;
 		edgesImage->getPixel(x, y - 1, edges);
-		if (edges[0] != 0.0)
+		if (edges[0] != 0.0)   /* Or is there a top crossing edge that breaks the line? */
 			break;
 		x--;
 	}
@@ -520,10 +567,10 @@ int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
 		x++;
 		edgesImage->getPixel(x, y, edges);
 		if (edges[1] == 0.0 || /* Is the edge not activated? */
-		    edges[0] != 0.0)   /* Or is there a crossing edge that breaks the line? */
+		    edges[0] != 0.0)   /* Or is there a bottom crossing edge that breaks the line? */
 			break;
 		edgesImage->getPixel(x, y - 1, edges);
-		if (edges[0] != 0.0)
+		if (edges[0] != 0.0)   /* Or is there a top crossing edge that breaks the line? */
 			break;
 	}
 
@@ -538,10 +585,10 @@ int PixelShader::searchYUp(ImageReader *edgesImage, int x, int y)
 	while (y >= end) {
 		edgesImage->getPixel(x, y, edges);
 		if (edges[0] == 0.0 || /* Is the edge not activated? */
-		    edges[1] != 0.0)   /* Or is there a crossing edge that breaks the line? */
+		    edges[1] != 0.0)   /* Or is there a right crossing edge that breaks the line? */
 			break;
 		edgesImage->getPixel(x - 1, y, edges);
-		if (edges[1] != 0.0)
+		if (edges[1] != 0.0)   /* Or is there a left crossing edge that breaks the line? */
 			break;
 		y--;
 	}
@@ -558,10 +605,10 @@ int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
 		y++;
 		edgesImage->getPixel(x, y, edges);
 		if (edges[0] == 0.0 || /* Is the edge not activated? */
-		    edges[1] != 0.0)   /* Or is there a crossing edge that breaks the line? */
+		    edges[1] != 0.0)   /* Or is there a right crossing edge that breaks the line? */
 			break;
 		edgesImage->getPixel(x - 1, y, edges);
-		if (edges[1] != 0.0)
+		if (edges[1] != 0.0)   /* Or is there a left crossing edge that breaks the line? */
 			break;
 	}
 
@@ -773,7 +820,8 @@ void PixelShader::neighborhoodBlending(int x, int y,
 		offset2 = -left;
 		weight1 = right / (right + left);
 		weight2 = left / (right + left);
-	} else {
+	}
+	else {
 		samplefunc = sampleOffsetVertical;
 		offset1 = bottom;
 		offset2 = -top;
