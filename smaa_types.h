@@ -42,14 +42,14 @@ enum ERROR_TYPE {
 /* Base class to define getPixel() member function as a callback */
 
 class ImageReader {
-private:
-	int clamp(int x, int range) { return 0 < x ? (x < range ? x : range - 1) : 0; }
+
 protected:
 	int m_width, m_height;
 
 	bool isOutOfRange(int x, int y) { return (x < 0 || x >= m_width || y < 0 || y >= m_height); }
 	int clampX(int x) { return clamp(x, m_width); }
 	int clampY(int y) { return clamp(y, m_height); }
+
 public:
 	ImageReader(int width, int height) : m_width(width), m_height(height) {}
 
@@ -57,12 +57,16 @@ public:
 	int getHeight() { return m_height; }
 
 	virtual void getPixel(int x, int y, float color[4]) {}
+
+private:
+	int clamp(int x, int range) { return 0 < x ? (x < range ? x : range - 1) : 0; }
 };
 
 /*-----------------------------------------------------------------------------*/
 /* Simple image buffer based on ImageReader */
 
 class Image : public ImageReader {
+
 private:
 	float *m_data;
 

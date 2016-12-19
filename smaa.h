@@ -43,6 +43,7 @@ enum CONFIG_PRESET {
 /* SMAA Pixel Shaders */
 
 class PixelShader {
+
 private:
 	bool m_enable_diag_detection;
 	bool m_enable_corner_detection;
@@ -56,18 +57,6 @@ private:
 	float m_predication_threshold;
 	float m_predication_scale;
 	float m_predication_strength;
-
-	/* Internal */
-	void calculatePredicatedThreshold(int x, int y, ImageReader *predicationImage, float threshold[2]);
-	int searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int dy, /* out */ float *end, bool *found);
-	int searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int dy, /* out */ float *end, bool *found);
-	void calculateDiagWeights(ImageReader *edgesImage, int x, int y, float e[2], float subsampleIndices[4], float weights[2]);
-	int searchXLeft(ImageReader *edgesImage, int x, int y);
-	int searchXRight(ImageReader *edgesImage, int x, int y);
-	int searchYUp(ImageReader *edgesImage, int x, int y);
-	int searchYDown(ImageReader *edgesImage, int x, int y);
-	void detectHorizontalCornerPattern(ImageReader *edgesImage, float weights[4], int left, int right, int y, int d[2]);
-	void detectVerticalCornerPattern(ImageReader *edgesImage, float weights[4], int top, int bottom, int x, int d[2]);
 
 public:
 	PixelShader() { setPresets(CONFIG_PRESET_HIGH); }
@@ -250,7 +239,10 @@ public:
 	 * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
 	 * thus 'colorImage' should be a non-sRGB texture.
 	 */
-	void lumaEdgeDetection(int x, int y, ImageReader *colorImage, ImageReader *predicationImage, float edges[4]);
+	void lumaEdgeDetection(int x, int y,
+			       ImageReader *colorImage,
+			       ImageReader *predicationImage,
+			       /* out */ float edges[4]);
 
 	/**
 	 * Color Edge Detection
@@ -258,12 +250,17 @@ public:
 	 * IMPORTANT NOTICE: color edge detection requires gamma-corrected colors, and
 	 * thus 'colorImage' should be a non-sRGB texture.
 	 */
-	void colorEdgeDetection(int x, int y, ImageReader *colorImage, ImageReader *predicationImage, float edges[4]);
+	void colorEdgeDetection(int x, int y,
+				ImageReader *colorImage,
+				ImageReader *predicationImage,
+				/* out */ float edges[4]);
 
 	/**
 	 * Depth Edge Detection
 	 */
-	void depthEdgeDetection(int x, int y, ImageReader *depthImage, float edges[4]);
+	void depthEdgeDetection(int x, int y,
+				ImageReader *depthImage,
+				/* out */ float edges[4]);
 
 	/*-----------------------------------------------------------------------------*/
 	/* Blending Weight Calculation Pixel Shader (Second Pass) */
@@ -272,7 +269,10 @@ public:
 	 * Blending Weight Calculation Pixel Shader (Second Pass)
 	 *   Just pass zero to subsampleIndices for SMAA 1x, see @SUBSAMPLE_INDICES.
 	 */
-	void blendingWeightCalculation(int x, int y, ImageReader *edgesImage, float subsampleIndices[4], float weights[4]);
+	void blendingWeightCalculation(int x, int y,
+				       ImageReader *edgesImage,
+				       const float subsampleIndices[4],
+				       /* out */ float weights[4]);
 
 	/*-----------------------------------------------------------------------------*/
 	/* Neighborhood Blending Pixel Shader (Third Pass) */
@@ -280,8 +280,26 @@ public:
 	/**
 	 * Neighborhood Blending Pixel Shader (Third Pass)
 	 */
-	void neighborhoodBlending(int x, int y, ImageReader *colorImage, ImageReader *blendImage, float output[4]);
+	void neighborhoodBlending(int x, int y,
+				  ImageReader *colorImage,
+				  ImageReader *blendImage,
+				  /* out */ float color[4]);
 
+private:
+	/* Internal */
+	void calculatePredicatedThreshold(int x, int y, ImageReader *predicationImage, float threshold[2]);
+	int searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int dy, float *end, bool *found);
+	int searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int dy, float *end, bool *found);
+	void calculateDiagWeights(ImageReader *edgesImage, int x, int y, float e[2],
+				  const float subsampleIndices[4], float weights[2]);
+	int searchXLeft(ImageReader *edgesImage, int x, int y);
+	int searchXRight(ImageReader *edgesImage, int x, int y);
+	int searchYUp(ImageReader *edgesImage, int x, int y);
+	int searchYDown(ImageReader *edgesImage, int x, int y);
+	void detectHorizontalCornerPattern(ImageReader *edgesImage, float weights[4],
+					   int left, int right, int y, int d1, int d2);
+	void detectVerticalCornerPattern(ImageReader *edgesImage, float weights[4],
+					 int top, int bottom, int x, int d1, int d2);
 };
 
 }

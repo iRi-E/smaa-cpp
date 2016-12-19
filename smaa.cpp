@@ -65,7 +65,7 @@ static float bilinear(float c00, float c10, float c01, float c11, float x, float
 	return (c00 * (1.0 - x) + c10 * x) * (1.0 - y) + (c01 * (1.0 - x) + c11 * x) * y;
 }
 
-static float rgb2bw(float color[4])
+static float rgb2bw(const float color[4])
 {
 	return RGB_WEIGHTS[0] * color[0] + RGB_WEIGHTS[1] * color[1] + RGB_WEIGHTS[2] * color[2];
 }
@@ -173,7 +173,10 @@ void PixelShader::calculatePredicatedThreshold(int x, int y, ImageReader *predic
  * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
  * thus 'colorImage' should be a non-sRGB image.
  */
-void PixelShader::lumaEdgeDetection(int x, int y, ImageReader *colorImage, ImageReader *predicationImage, float edges[4])
+void PixelShader::lumaEdgeDetection(int x, int y,
+				    ImageReader *colorImage,
+				    ImageReader *predicationImage,
+				    /* out */ float edges[4])
 {
 	float threshold[2];
 	float color[4];
@@ -242,7 +245,10 @@ void PixelShader::lumaEdgeDetection(int x, int y, ImageReader *colorImage, Image
  * IMPORTANT NOTICE: color edge detection requires gamma-corrected colors, and
  * thus 'colorImage' should be a non-sRGB image.
  */
-void PixelShader::colorEdgeDetection(int x, int y, ImageReader *colorImage, ImageReader *predicationImage, float edges[4])
+void PixelShader::colorEdgeDetection(int x, int y,
+				     ImageReader *colorImage,
+				     ImageReader *predicationImage,
+				     /* out */ float edges[4])
 {
 	float threshold[2];
 
@@ -303,7 +309,9 @@ void PixelShader::colorEdgeDetection(int x, int y, ImageReader *colorImage, Imag
 /**
  * Depth Edge Detection
  */
-void PixelShader::depthEdgeDetection(int x, int y, ImageReader *depthImage, float edges[4])
+void PixelShader::depthEdgeDetection(int x, int y,
+				     ImageReader *depthImage,
+				     /* out */ float edges[4])
 {
 	float here[4], left[4], top[4];
 
@@ -323,7 +331,8 @@ void PixelShader::depthEdgeDetection(int x, int y, ImageReader *depthImage, floa
 /**
  * These functions allows to perform diagonal pattern searches.
  */
-int PixelShader::searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int dy, /* out */ float *end, bool *found)
+int PixelShader::searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int dy,
+			     /* out */ float *end, bool *found)
 {
 	float edges[4];
 	int dist = -1;
@@ -344,7 +353,8 @@ int PixelShader::searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int 
 	return dist;
 }
 
-int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int dy, /* out */ float *end, bool *found)
+int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int dy,
+			     /* out */ float *end, bool *found)
 {
 	float edges1[4], edges2[4];
 	int dist = -1;
@@ -370,7 +380,8 @@ int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int 
  * Similar to area(), this calculates the area corresponding to a certain
  * diagonal distance and crossing edges 'e'.
  */
-static void areaDiag(int d1, int d2, int e1, int e2, float offset, float weights[2])
+static void areaDiag(int d1, int d2, int e1, int e2, float offset,
+		     /* out */ float weights[2])
 {
 	float x = (float)(SMAA_AREATEX_MAX_DISTANCE_DIAG * e1 + d1);
 	float y = (float)(SMAA_AREATEX_MAX_DISTANCE_DIAG * e2 + d2);
@@ -389,7 +400,8 @@ static void areaDiag(int d1, int d2, int e1, int e2, float offset, float weights
 /**
  * This searches for diagonal patterns and returns the corresponding weights.
  */
-void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, float e[2], float subsampleIndices[4],
+void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, float e[2],
+				       const float subsampleIndices[4],
 				       /* out */ float weights[2])
 {
 	int d1, d2;
@@ -560,11 +572,12 @@ int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
  * Ok, we have the distance and both crossing edges. So, what are the areas
  * at each side of current edge?
  */
-static void area(float dist[2], float e1, float e2, float offset, float weights[2])
+static void area(float sqrt_d1, float sqrt_d2, float e1, float e2, float offset,
+		 /* out */ float weights[2])
 {
 	/* Rounding prevents precision errors of bilinear filtering: */
-	float x = (float)SMAA_AREATEX_MAX_DISTANCE * roundf(4.0 * e1) + dist[0];
-	float y = (float)SMAA_AREATEX_MAX_DISTANCE * roundf(4.0 * e2) + dist[1];
+	float x = (float)SMAA_AREATEX_MAX_DISTANCE * roundf(4.0 * e1) + sqrt_d1;
+	float y = (float)SMAA_AREATEX_MAX_DISTANCE * roundf(4.0 * e2) + sqrt_d2;
 
 	/* We do a bias for mapping to texel space: */
 	x += 0.5;
@@ -580,25 +593,26 @@ static void area(float dist[2], float e1, float e2, float offset, float weights[
 /*-----------------------------------------------------------------------------*/
 /*  Corner Detection Functions */
 
-void PixelShader::detectHorizontalCornerPattern(ImageReader *edgesImage, /* inout */ float weights[4],
-						int left, int right, int y, int d[2])
+void PixelShader::detectHorizontalCornerPattern(ImageReader *edgesImage,
+						/* inout */ float weights[4],
+						int left, int right, int y, int d1, int d2)
 {
 	float factor[2] = {1.0, 1.0};
 	float rounding = 1.0 - (float)m_corner_rounding / 100.0;
 	float edges[4];
 
 	/* Reduce blending for pixels in the center of a line. */
-	rounding *= (d[0] == d[1]) ? 0.5 : 1.0;
+	rounding *= (d1 == d2) ? 0.5 : 1.0;
 
 	/* Near the left corner */
-	if (d[0] <= d[1]) {
+	if (d1 <= d2) {
 		edgesImage->getPixel(left, y + 1, edges);
 		factor[0] -= rounding * edges[0];
 		edgesImage->getPixel(left, y - 2, edges);
 		factor[1] -= rounding * edges[0];
 	}
 	/* Near the right corner */
-	if (d[0] >= d[1]) {
+	if (d1 >= d2) {
 		edgesImage->getPixel(right + 1, y + 1, edges);
 		factor[0] -= rounding * edges[0];
 		edgesImage->getPixel(right + 1, y - 2, edges);
@@ -609,25 +623,26 @@ void PixelShader::detectHorizontalCornerPattern(ImageReader *edgesImage, /* inou
 	weights[1] *= saturate(factor[1]);
 }
 
-void PixelShader::detectVerticalCornerPattern(ImageReader *edgesImage, /* inout */ float weights[4],
-					      int top, int bottom, int x, int d[2])
+void PixelShader::detectVerticalCornerPattern(ImageReader *edgesImage,
+					      /* inout */ float weights[4],
+					      int top, int bottom, int x, int d1, int d2)
 {
 	float factor[2] = {1.0, 1.0};
 	float rounding = 1.0 - (float)m_corner_rounding / 100.0;
 	float edges[4];
 
 	/* Reduce blending for pixels in the center of a line. */
-	rounding *= (d[0] == d[1]) ? 0.5 : 1.0;
+	rounding *= (d1 == d2) ? 0.5 : 1.0;
 
 	/* Near the top corner */
-	if (d[0] <= d[1]) {
+	if (d1 <= d2) {
 		edgesImage->getPixel(x + 1, top, edges);
 		factor[0] -= rounding * edges[1];
 		edgesImage->getPixel(x - 2, top, edges);
 		factor[1] -= rounding * edges[1];
 	}
 	/* Near the bottom corner */
-	if (d[0] >= d[1]) {
+	if (d1 >= d2) {
 		edgesImage->getPixel(x + 1, bottom + 1, edges);
 		factor[0] -= rounding * edges[1];
 		edgesImage->getPixel(x - 2, bottom + 1, edges);
@@ -642,7 +657,10 @@ void PixelShader::detectVerticalCornerPattern(ImageReader *edgesImage, /* inout 
 /* Blending Weight Calculation Pixel Shader (Second Pass) */
 /*   Just pass zero to subsampleIndices for SMAA 1x, see @SUBSAMPLE_INDICES. */
 
-void PixelShader::blendingWeightCalculation(int x, int y, ImageReader *edgesImage, float subsampleIndices[4], float weights[4])
+void PixelShader::blendingWeightCalculation(int x, int y,
+					    ImageReader *edgesImage,
+					    const float subsampleIndices[4],
+					    /* out */ float weights[4])
 {
 	float w[2], edges[4];
 
@@ -667,7 +685,7 @@ void PixelShader::blendingWeightCalculation(int x, int y, ImageReader *edgesImag
 		/* Find the distance to the left and the right: */
 		int left = searchXLeft(edgesImage, x, y);
 		int right = searchXRight(edgesImage, x, y);
-		int d[2] = {abs(left - x), abs(right - x)};
+		int d1 = abs(left - x), d2 = abs(right - x);
 
 		/* Now fetch the left and right crossing edges, two at a time using bilinear */
 		/* filtering. Sampling at -0.25 enables to discern what value each edge has: */
@@ -679,17 +697,17 @@ void PixelShader::blendingWeightCalculation(int x, int y, ImageReader *edgesImag
 
 		/* area() below needs a sqrt, as the areas texture is compressed */
 		/* quadratically: */
-		float sqrt_d[2] = {sqrtf((float)d[0]), sqrtf((float)d[1])};
+		float sqrt_d1 = sqrtf((float)d1), sqrt_d2 = sqrtf((float)d2);
 
 		/* Ok, we know how this pattern looks like, now it is time for getting */
 		/* the actual area: */
-		area(sqrt_d, e1, e2, (subsampleIndices ? subsampleIndices[1] : 0.0), w);
+		area(sqrt_d1, sqrt_d2, e1, e2, (subsampleIndices ? subsampleIndices[1] : 0.0), w);
 		weights[0] = w[0];
 		weights[1] = w[1];
 
 		/* Fix corners: */
 		if (m_enable_corner_detection)
-			detectHorizontalCornerPattern(edgesImage, weights, left, right, y, d);
+			detectHorizontalCornerPattern(edgesImage, weights, left, right, y, d1, d2);
 	}
 
 	if (edges[0] > 0.0) { /* Edge at west */
@@ -697,7 +715,7 @@ void PixelShader::blendingWeightCalculation(int x, int y, ImageReader *edgesImag
 		/* Find the distance to the top and the bottom: */
 		int top = searchYUp(edgesImage, x, y);
 		int bottom = searchYDown(edgesImage, x, y);
-		int d[2] = {abs(top - y), abs(bottom - y)};
+		int d1 = abs(top - y), d2 = abs(bottom - y);
 
 		/* Fetch the top ang bottom crossing edges: */
 		float edges[4];
@@ -708,23 +726,26 @@ void PixelShader::blendingWeightCalculation(int x, int y, ImageReader *edgesImag
 
 		/* area() below needs a sqrt, as the areas texture is compressed  */
 		/* quadratically: */
-		float sqrt_d[2] = {sqrtf((float)d[0]), sqrtf((float)d[1])};
+		float sqrt_d1 = sqrtf((float)d1), sqrt_d2 = sqrtf((float)d2);
 
 		/* Get the area for this direction: */
-		area(sqrt_d, e1, e2, (subsampleIndices ? subsampleIndices[0] : 0.0), w);
+		area(sqrt_d1, sqrt_d2, e1, e2, (subsampleIndices ? subsampleIndices[0] : 0.0), w);
 		weights[2] = w[0];
 		weights[3] = w[1];
 
 		/* Fix corners: */
 		if (m_enable_corner_detection)
-			detectVerticalCornerPattern(edgesImage, weights, top, bottom, x, d);
+			detectVerticalCornerPattern(edgesImage, weights, top, bottom, x, d1, d2);
 	}
 }
 
 /*-----------------------------------------------------------------------------*/
 /* Neighborhood Blending Pixel Shader (Third Pass) */
 
-void PixelShader::neighborhoodBlending(int x, int y, ImageReader *colorImage, ImageReader *blendImage, float output[4])
+void PixelShader::neighborhoodBlending(int x, int y,
+				       ImageReader *colorImage,
+				       ImageReader *blendImage,
+				       /* out */ float color[4])
 {
 	float w[4];
 
@@ -738,12 +759,12 @@ void PixelShader::neighborhoodBlending(int x, int y, ImageReader *colorImage, Im
 
 	/* Is there any blending weight with a value greater than 0.0? */
 	if (right + bottom + left + top < 1e-5) {
-		colorImage->getPixel(x, y, output);
+		colorImage->getPixel(x, y, color);
 		return;
 	}
 
 	/* Calculate the blending offsets: */
-	void (*samplefunc)(ImageReader *image, int x, int y, float offset, float output[4]);
+	void (*samplefunc)(ImageReader *image, int x, int y, float offset, float color[4]);
 	float offset1, offset2, weight1, weight2;
 
 	if (fmaxf(right, left) > fmaxf(bottom, top)) { /* max(horizontal) > max(vertical) */
@@ -765,10 +786,10 @@ void PixelShader::neighborhoodBlending(int x, int y, ImageReader *colorImage, Im
 	samplefunc(colorImage, x, y, offset1, color1);
 	samplefunc(colorImage, x, y, offset2, color2);
 
-	output[0] = weight1 * color1[0] + weight2 * color2[0];
-	output[1] = weight1 * color1[1] + weight2 * color2[1];
-	output[2] = weight1 * color1[2] + weight2 * color2[2];
-	output[3] = weight1 * color1[3] + weight2 * color2[3];
+	color[0] = weight1 * color1[0] + weight2 * color2[0];
+	color[1] = weight1 * color1[1] + weight2 * color2[1];
+	color[2] = weight1 * color1[2] + weight2 * color2[2];
+	color[3] = weight1 * color1[3] + weight2 * color2[3];
 }
 
 /*-----------------------------------------------------------------------------*/
