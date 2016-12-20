@@ -288,8 +288,8 @@ void PixelShader::colorEdgeDetection(int x, int y,
 	float Cleftleft[4], Ctoptop[4];
 	colorImage->getPixel(x - 2, y, Cleftleft);
 	colorImage->getPixel(x, y - 2, Ctoptop);
-	float Dleftleft = color_delta(C, Cleftleft);
-	float Dtoptop   = color_delta(C, Ctoptop);
+	float Dleftleft = color_delta(Cleft, Cleftleft);
+	float Dtoptop   = color_delta(Ctop, Ctoptop);
 
 	/* Calculate the maximum delta: */
 	float maxDelta_x = fmaxf(fmaxf(Dleft, Dright), Dleftleft);
