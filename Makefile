@@ -33,7 +33,7 @@ $(TEXGEN): $(TEXGEN).cpp
 	$(CCXX) -o $(TEXGEN) $(CFLAGS) $(TEXGEN).cpp
 
 test: $(PROG)
-	for f in invader circle square monkey mizuki suzu pattern; do \
+	for f in invader circle square monkey mizuki suzu pattern pattern2; do \
 		./$(PROG) tests/$${f}.png tests/$${f}_result.png; \
 		diff -s tests/$${f}_aa.png tests/$${f}_result.png; \
 	done
