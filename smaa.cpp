@@ -32,9 +32,9 @@ namespace SMAA {
 /*-----------------------------------------------------------------------------*/
 /* Non-Configurable Defines */
 
-static const int SMAA_AREATEX_SIZE = 80; /* 16 * 5 = 20 * 4 = 80 */
-static const int SMAA_AREATEX_MAX_DISTANCE = 16;
-static const int SMAA_AREATEX_MAX_DISTANCE_DIAG = 20;
+static const int AREATEX_SIZE = 80; /* 16 * 5 = 20 * 4 = 80 */
+static const int AREATEX_MAX_DISTANCE = 16;
+static const int AREATEX_MAX_DISTANCE_DIAG = 20;
 static const float RGB_WEIGHTS[3] = {0.2126, 0.7152, 0.0722};
 
 /*-----------------------------------------------------------------------------*/
@@ -125,12 +125,12 @@ static void sampleOffsetHorizontal(ImageReader *image, int x, int y, float xoffs
 
 static inline int clamp_areatex_coord(int x)
 {
-	return 0 < x ? (x < SMAA_AREATEX_SIZE ? x : SMAA_AREATEX_SIZE - 1) : 0;
+	return 0 < x ? (x < AREATEX_SIZE ? x : AREATEX_SIZE - 1) : 0;
 }
 
 static inline const float* areatex_sample_internal(const float *areatex, int x, int y)
 {
-	return &areatex[(clamp_areatex_coord(x) + clamp_areatex_coord(y) * SMAA_AREATEX_SIZE) * 2];
+	return &areatex[(clamp_areatex_coord(x) + clamp_areatex_coord(y) * AREATEX_SIZE) * 2];
 }
 
 static void areaTexSampleLevelZero(const float *areatex, float x, float y, float weights[2])
@@ -388,15 +388,15 @@ int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int 
 static void areaDiag(int d1, int d2, int e1, int e2, float offset,
 		     /* out */ float weights[2])
 {
-	float x = (float)(SMAA_AREATEX_MAX_DISTANCE_DIAG * e1 + d1);
-	float y = (float)(SMAA_AREATEX_MAX_DISTANCE_DIAG * e2 + d2);
+	float x = (float)(AREATEX_MAX_DISTANCE_DIAG * e1 + d1);
+	float y = (float)(AREATEX_MAX_DISTANCE_DIAG * e2 + d2);
 
 	/* We do a bias for mapping to texel space: */
 	x += 0.5;
 	y += 0.5;
 
 	/* Move to proper place, according to the subpixel offset: */
-	y += (float)SMAA_AREATEX_SIZE * offset;
+	y += (float)AREATEX_SIZE * offset;
 
 	/* Do it! */
 	areaTexSampleLevelZero(areatex_diag, x, y, weights);
@@ -632,15 +632,15 @@ static void area(int d1, int d2, int e1, int e2, float offset,
 		 /* out */ float weights[2])
 {
 	/* The areas texture is compressed quadratically: */
-	float x = (float)(SMAA_AREATEX_MAX_DISTANCE * e1) + sqrtf((float)d1);
-	float y = (float)(SMAA_AREATEX_MAX_DISTANCE * e2) + sqrtf((float)d2);
+	float x = (float)(AREATEX_MAX_DISTANCE * e1) + sqrtf((float)d1);
+	float y = (float)(AREATEX_MAX_DISTANCE * e2) + sqrtf((float)d2);
 
 	/* We do a bias for mapping to texel space: */
 	x += 0.5;
 	y += 0.5;
 
 	/* Move to proper place, according to the subpixel offset: */
-	y += (float)SMAA_AREATEX_SIZE * offset;
+	y += (float)AREATEX_SIZE * offset;
 
 	/* Do it! */
 	areaTexSampleLevelZero(areatex, x, y, weights);
