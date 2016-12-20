@@ -40,37 +40,32 @@ static const float RGB_WEIGHTS[3] = {0.2126, 0.7152, 0.0722};
 /*-----------------------------------------------------------------------------*/
 /* Misc functions */
 
-static float step(float edge, float x)
+static inline float step(float edge, float x)
 {
 	return x < edge ? 0.0 : 1.0;
 }
 
-static float saturate(float x)
+static inline float saturate(float x)
 {
 	return 0.0 < x ? (x < 1.0 ? x : 1.0) : 0.0;
 }
 
-static int clamp(int x, int range)
-{
-	return 0 < x ? (x < range ? x : range - 1) : 0;
-}
-
-static float lerp(float a, float b, float p)
+static inline float lerp(float a, float b, float p)
 {
 	return a + (b - a) * p;
 }
 
-static float bilinear(float c00, float c10, float c01, float c11, float x, float y)
+static inline float bilinear(float c00, float c10, float c01, float c11, float x, float y)
 {
 	return (c00 * (1.0 - x) + c10 * x) * (1.0 - y) + (c01 * (1.0 - x) + c11 * x) * y;
 }
 
-static float rgb2bw(const float color[4])
+static inline float rgb2bw(const float color[4])
 {
 	return RGB_WEIGHTS[0] * color[0] + RGB_WEIGHTS[1] * color[1] + RGB_WEIGHTS[2] * color[2];
 }
 
-static float color_delta(const float color1[4], const float color2[4])
+static inline float color_delta(const float color1[4], const float color2[4])
 {
 	return fmaxf(fmaxf(fabsf(color1[0] - color2[0]), fabsf(color1[1] - color2[1])), fabsf(color1[2] - color2[2]));
 }
@@ -128,10 +123,14 @@ static void sampleOffsetHorizontal(ImageReader *image, int x, int y, float xoffs
 	output[3] = lerp(color00[3], color10[3], fx);
 }
 
-static const float* areatex_sample_internal(const float *areatex, int x, int y)
+static inline int clamp_areatex_coord(int x)
 {
-	return &areatex[(clamp(x, SMAA_AREATEX_SIZE) +
-			 clamp(y, SMAA_AREATEX_SIZE) * SMAA_AREATEX_SIZE) * 2];
+	return 0 < x ? (x < SMAA_AREATEX_SIZE ? x : SMAA_AREATEX_SIZE - 1) : 0;
+}
+
+static inline const float* areatex_sample_internal(const float *areatex, int x, int y)
+{
+	return &areatex[(clamp_areatex_coord(x) + clamp_areatex_coord(y) * SMAA_AREATEX_SIZE) * 2];
 }
 
 static void areaTexSampleLevelZero(const float *areatex, float x, float y, float weights[2])

@@ -46,20 +46,17 @@ class ImageReader {
 protected:
 	int m_width, m_height;
 
-	bool isOutOfRange(int x, int y) { return (x < 0 || x >= m_width || y < 0 || y >= m_height); }
-	int clampX(int x) { return clamp(x, m_width); }
-	int clampY(int y) { return clamp(y, m_height); }
+	inline bool isOutOfRange(int x, int y) { return (x < 0 || x >= m_width || y < 0 || y >= m_height); }
+	inline int clampX(int x) { return 0 < x ? (x < m_width ? x : m_width - 1) : 0; }
+	inline int clampY(int y) { return 0 < y ? (y < m_height ? y : m_height - 1) : 0; }
 
 public:
 	ImageReader(int width, int height) : m_width(width), m_height(height) {}
 
-	int getWidth() { return m_width; }
-	int getHeight() { return m_height; }
+	inline int getWidth() { return m_width; }
+	inline int getHeight() { return m_height; }
 
 	virtual void getPixel(int x, int y, float color[4]) {}
-
-private:
-	int clamp(int x, int range) { return 0 < x ? (x < range ? x : range - 1) : 0; }
 };
 
 /*-----------------------------------------------------------------------------*/
