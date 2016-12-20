@@ -629,12 +629,12 @@ int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
  * Ok, we have the distance and both crossing edges. So, what are the areas
  * at each side of current edge?
  */
-static void area(float sqrt_d1, float sqrt_d2, int e1, int e2, float offset,
+static void area(int d1, int d2, int e1, int e2, float offset,
 		 /* out */ float weights[2])
 {
-	/* Rounding prevents precision errors of bilinear filtering: */
-	float x = (float)(SMAA_AREATEX_MAX_DISTANCE * e1) + sqrt_d1;
-	float y = (float)(SMAA_AREATEX_MAX_DISTANCE * e2) + sqrt_d2;
+	/* The areas texture is compressed quadratically: */
+	float x = (float)(SMAA_AREATEX_MAX_DISTANCE * e1) + sqrtf((float)d1);
+	float y = (float)(SMAA_AREATEX_MAX_DISTANCE * e2) + sqrtf((float)d2);
 
 	/* We do a bias for mapping to texel space: */
 	x += 0.5;
@@ -719,7 +719,7 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 					    const float subsampleIndices[4],
 					    /* out */ float weights[4])
 {
-	float w[2], edges[4];
+	float edges[4], e[4];
 
 	weights[0] = weights[1] = weights[2] = weights[3] = 0.0;
 	edgesImage->getPixel(x, y, edges);
@@ -728,15 +728,12 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		if (m_enable_diag_detection) {
 			/* Diagonals have both north and west edges, so searching for them in */
 			/* one of the boundaries is enough. */
-			calculateDiagWeights(edgesImage, x, y, edges, subsampleIndices, w);
+			calculateDiagWeights(edgesImage, x, y, edges, subsampleIndices, weights);
 
 			/* We give priority to diagonals, so if we find a diagonal we skip  */
 			/* horizontal/vertical processing. */
-			if (w[0] + w[1] != 0.0) {
-				weights[0] = w[0];
-				weights[1] = w[1];
+			if (weights[0] + weights[1] != 0.0)
 				return;
-			}
 		}
 
 		/* Find the distance to the left and the right: */
@@ -744,32 +741,24 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		int right = searchXRight(edgesImage, x, y);
 		int d1 = abs(left - x), d2 = abs(right - x);
 
-		/* Now fetch the left and right crossing edges, two at a time using bilinear */
-		/* filtering. Sampling at -0.25 enables to discern what value each edge has: */
-		float edges[4];
+		/* Now fetch the left and right crossing edges: */
 		int e1 = 0, e2 = 0;
-		edgesImage->getPixel(left, y - 1, edges);
-		if (edges[0] > 0.0)
+		edgesImage->getPixel(left, y - 1, e);
+		if (e[0] > 0.0)
 			e1 += 1;
-		edgesImage->getPixel(left, y, edges);
-		if (edges[0] > 0.0)
+		edgesImage->getPixel(left, y, e);
+		if (e[0] > 0.0)
 			e1 += 3;
-		edgesImage->getPixel(right + 1, y - 1, edges);
-		if (edges[0] > 0.0)
+		edgesImage->getPixel(right + 1, y - 1, e);
+		if (e[0] > 0.0)
 			e2 += 1;
-		edgesImage->getPixel(right + 1, y, edges);
-		if (edges[0] > 0.0)
+		edgesImage->getPixel(right + 1, y, e);
+		if (e[0] > 0.0)
 			e2 += 3;
-
-		/* area() below needs a sqrt, as the areas texture is compressed */
-		/* quadratically: */
-		float sqrt_d1 = sqrtf((float)d1), sqrt_d2 = sqrtf((float)d2);
 
 		/* Ok, we know how this pattern looks like, now it is time for getting */
 		/* the actual area: */
-		area(sqrt_d1, sqrt_d2, e1, e2, (subsampleIndices ? subsampleIndices[1] : 0.0), w);
-		weights[0] = w[0];
-		weights[1] = w[1];
+		area(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[1] : 0.0), weights);
 
 		/* Fix corners: */
 		if (m_enable_corner_detection)
@@ -784,29 +773,22 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		int d1 = abs(top - y), d2 = abs(bottom - y);
 
 		/* Fetch the top ang bottom crossing edges: */
-		float edges[4];
 		int e1 = 0, e2 = 0;
-		edgesImage->getPixel(x - 1, top, edges);
-		if (edges[1] > 0.0)
+		edgesImage->getPixel(x - 1, top, e);
+		if (e[1] > 0.0)
 			e1 += 1;
-		edgesImage->getPixel(x, top, edges);
-		if (edges[1] > 0.0)
+		edgesImage->getPixel(x, top, e);
+		if (e[1] > 0.0)
 			e1 += 3;
-		edgesImage->getPixel(x - 1, bottom + 1, edges);
-		if (edges[1] > 0.0)
+		edgesImage->getPixel(x - 1, bottom + 1, e);
+		if (e[1] > 0.0)
 			e2 += 1;
-		edgesImage->getPixel(x, bottom + 1, edges);
-		if (edges[1] > 0.0)
+		edgesImage->getPixel(x, bottom + 1, e);
+		if (e[1] > 0.0)
 			e2 += 3;
 
-		/* area() below needs a sqrt, as the areas texture is compressed  */
-		/* quadratically: */
-		float sqrt_d1 = sqrtf((float)d1), sqrt_d2 = sqrtf((float)d2);
-
 		/* Get the area for this direction: */
-		area(sqrt_d1, sqrt_d2, e1, e2, (subsampleIndices ? subsampleIndices[0] : 0.0), w);
-		weights[2] = w[0];
-		weights[3] = w[1];
+		area(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[0] : 0.0), weights + 2);
 
 		/* Fix corners: */
 		if (m_enable_corner_detection)
