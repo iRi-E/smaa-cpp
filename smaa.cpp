@@ -574,17 +574,17 @@ int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
 	float edges[4];
 
 	while (x <= end) {
-		x++;
-		edgesImage->getPixel(x, y, edges);
+		edgesImage->getPixel(x + 1, y, edges);
 		if (edges[1] == 0.0 || /* Is the edge not activated? */
 		    edges[0] != 0.0)   /* Or is there a bottom crossing edge that breaks the line? */
 			break;
-		edgesImage->getPixel(x, y - 1, edges);
+		edgesImage->getPixel(x + 1, y - 1, edges);
 		if (edges[0] != 0.0)   /* Or is there a top crossing edge that breaks the line? */
 			break;
+		x++;
 	}
 
-	return x - 1;
+	return x;
 }
 
 int PixelShader::searchYUp(ImageReader *edgesImage, int x, int y)
@@ -612,17 +612,17 @@ int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
 	float edges[4];
 
 	while (y <= end) {
-		y++;
-		edgesImage->getPixel(x, y, edges);
+		edgesImage->getPixel(x, y + 1, edges);
 		if (edges[0] == 0.0 || /* Is the edge not activated? */
 		    edges[1] != 0.0)   /* Or is there a right crossing edge that breaks the line? */
 			break;
-		edgesImage->getPixel(x - 1, y, edges);
+		edgesImage->getPixel(x - 1, y + 1, edges);
 		if (edges[1] != 0.0)   /* Or is there a left crossing edge that breaks the line? */
 			break;
+		y++;
 	}
 
-	return y - 1;
+	return y;
 }
 
 /**
