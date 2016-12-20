@@ -70,6 +70,11 @@ static float rgb2bw(const float color[4])
 	return RGB_WEIGHTS[0] * color[0] + RGB_WEIGHTS[1] * color[1] + RGB_WEIGHTS[2] * color[2];
 }
 
+static float color_delta(const float color1[4], const float color2[4])
+{
+	return fmaxf(fmaxf(fabsf(color1[0] - color2[0]), fabsf(color1[1] - color2[1])), fabsf(color1[2] - color2[2]));
+}
+
 static void sample(ImageReader *image, float x, float y, float output[4])
 {
 	float ix = floorf(x), iy = floorf(y);
@@ -187,56 +192,52 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	else
 		threshold[0] = threshold[1] = m_threshold;
 
-	/* Calculate lumas: */
+	/* Calculate lumas and deltas: */
 	colorImage->getPixel(x, y, color);
 	float L = rgb2bw(color);
 	colorImage->getPixel(x - 1, y, color);
 	float Lleft = rgb2bw(color);
 	colorImage->getPixel(x, y - 1, color);
 	float Ltop  = rgb2bw(color);
+	float Dleft = fabsf(L - Lleft);
+	float Dtop  = fabsf(L - Ltop);
 
 	/* We do the usual threshold: */
-	float delta_x = fabsf(L - Lleft);
-	float delta_y = fabsf(L - Ltop);
-	edges[0] = step(threshold[0], delta_x);
-	edges[1] = step(threshold[1], delta_y);
+	edges[0] = step(threshold[0], Dleft);
+	edges[1] = step(threshold[1], Dtop);
 	edges[2] = 0.0;
 	edges[3] = 1.0;
 
 	/* Then discard if there is no edge: */
-	if (edges[0] != 0.0 || edges[1] != 0.0) {
+	if (edges[0] == 0.0 && edges[1] == 0.0)
+		return;
 
-		/* Calculate right and bottom deltas: */
-		colorImage->getPixel(x + 1, y, color);
-		float Lright = rgb2bw(color);
-		colorImage->getPixel(x, y + 1, color);
-		float Lbottom = rgb2bw(color);
-		float delta_z = fabsf(L - Lright);
-		float delta_w = fabsf(L - Lbottom);
+	/* Calculate right and bottom deltas: */
+	colorImage->getPixel(x + 1, y, color);
+	float Lright = rgb2bw(color);
+	colorImage->getPixel(x, y + 1, color);
+	float Lbottom = rgb2bw(color);
+	float Dright  = fabsf(L - Lright);
+	float Dbottom = fabsf(L - Lbottom);
 
-		/* Calculate the maximum delta in the direct neighborhood: */
-		float maxDelta_x = fmaxf(delta_x, delta_z);
-		float maxDelta_y = fmaxf(delta_y, delta_w);
+	/* Calculate left-left and top-top deltas: */
+	colorImage->getPixel(x - 2, y, color);
+	float Lleftleft = rgb2bw(color);
+	colorImage->getPixel(x, y - 2, color);
+	float Ltoptop = rgb2bw(color);
+	float Dleftleft = fabsf(Lleft - Lleftleft);
+	float Dtoptop   = fabsf(Ltop - Ltoptop);
 
-		/* Calculate left-left and top-top deltas: */
-		colorImage->getPixel(x - 2, y, color);
-		float Lleftleft = rgb2bw(color);
-		colorImage->getPixel(x, y - 2, color);
-		float Ltoptop = rgb2bw(color);
-		delta_z = fabsf(Lleft - Lleftleft);
-		delta_w = fabsf(Ltop - Ltoptop);
+	/* Calculate the maximum delta: */
+	float maxDelta_x = fmaxf(fmaxf(Dleft, Dright), Dleftleft);
+	float maxDelta_y = fmaxf(fmaxf(Dtop, Dbottom), Dtoptop);
+	float finalDelta = fmaxf(maxDelta_x, maxDelta_y);
 
-		/* Calculate the final maximum delta: */
-		maxDelta_x = fmaxf(maxDelta_x, delta_z);
-		maxDelta_y = fmaxf(maxDelta_y, delta_w);
-		{
-			float finalDelta = fmaxf(maxDelta_x, maxDelta_y);
-
-			/* Local contrast adaptation: */
-			edges[0] *= step(finalDelta, m_local_contrast_adaptation_factor * delta_x);
-			edges[1] *= step(finalDelta, m_local_contrast_adaptation_factor * delta_y);
-		}
-	}
+	/* Local contrast adaptation: */
+	if (finalDelta > m_local_contrast_adaptation_factor * Dleft)
+		edges[0] = 0.0;
+	if (finalDelta > m_local_contrast_adaptation_factor * Dtop)
+		edges[1] = 0.0;
 }
 
 /**
@@ -263,47 +264,43 @@ void PixelShader::colorEdgeDetection(int x, int y,
 	colorImage->getPixel(x, y, C);
 	colorImage->getPixel(x - 1, y, Cleft);
 	colorImage->getPixel(x, y - 1, Ctop);
-	float delta_x = fmaxf(fmaxf(fabsf(C[0] - Cleft[0]), fabsf(C[1] - Cleft[1])), fabsf(C[2] - Cleft[2]));
-	float delta_y = fmaxf(fmaxf(fabsf(C[0] - Ctop[0]), fabsf(C[1] - Ctop[1])), fabsf(C[2] - Ctop[2]));
+	float Dleft = color_delta(C, Cleft);
+	float Dtop  = color_delta(C, Ctop);
 
 	/* We do the usual threshold: */
-	edges[0] = step(threshold[0], delta_x);
-	edges[1] = step(threshold[1], delta_y);
+	edges[0] = step(threshold[0], Dleft);
+	edges[1] = step(threshold[1], Dtop);
 	edges[2] = 0.0;
 	edges[3] = 1.0;
 
 	/* Then discard if there is no edge: */
-	if (edges[0] != 0.0 || edges[1] != 0.0) {
+	if (edges[0] == 0.0 && edges[1] == 0.0)
+		return;
 
-		/* Calculate right and bottom deltas: */
-		float Cright[4], Cbottom[4];
-		colorImage->getPixel(x + 1, y, Cright);
-		colorImage->getPixel(x, y + 1, Cbottom);
-		float delta_z = fmaxf(fmaxf(fabsf(C[0] - Cright[0]), fabsf(C[1] - Cright[1])), fabsf(C[2] - Cright[2]));
-		float delta_w = fmaxf(fmaxf(fabsf(C[0] - Cbottom[0]), fabsf(C[1] - Cbottom[1])), fabsf(C[2] - Cbottom[2]));
+	/* Calculate right and bottom deltas: */
+	float Cright[4], Cbottom[4];
+	colorImage->getPixel(x + 1, y, Cright);
+	colorImage->getPixel(x, y + 1, Cbottom);
+	float Dright  = color_delta(C, Cright);
+	float Dbottom = color_delta(C, Cbottom);
 
-		/* Calculate the maximum delta in the direct neighborhood: */
-		float maxDelta_x = fmaxf(delta_x, delta_z);
-		float maxDelta_y = fmaxf(delta_y, delta_w);
+	/* Calculate left-left and top-top deltas: */
+	float Cleftleft[4], Ctoptop[4];
+	colorImage->getPixel(x - 2, y, Cleftleft);
+	colorImage->getPixel(x, y - 2, Ctoptop);
+	float Dleftleft = color_delta(C, Cleftleft);
+	float Dtoptop   = color_delta(C, Ctoptop);
 
-		/* Calculate left-left and top-top deltas: */
-		float Cleftleft[4], Ctoptop[4];
-		colorImage->getPixel(x - 2, y, Cleftleft);
-		colorImage->getPixel(x, y - 2, Ctoptop);
-		delta_z = fmaxf(fmaxf(fabsf(C[0] - Cleftleft[0]), fabsf(C[1] - Cleftleft[1])), fabsf(C[2] - Cleftleft[2]));
-		delta_w = fmaxf(fmaxf(fabsf(C[0] - Ctoptop[0]), fabsf(C[1] - Ctoptop[1])), fabsf(C[2] - Ctoptop[2]));
+	/* Calculate the maximum delta: */
+	float maxDelta_x = fmaxf(fmaxf(Dleft, Dright), Dleftleft);
+	float maxDelta_y = fmaxf(fmaxf(Dtop, Dbottom), Dtoptop);
+	float finalDelta = fmaxf(maxDelta_x, maxDelta_y);
 
-		/* Calculate the final maximum delta: */
-		maxDelta_x = fmaxf(maxDelta_x, delta_z);
-		maxDelta_y = fmaxf(maxDelta_y, delta_w);
-		{
-			float finalDelta = fmaxf(maxDelta_x, maxDelta_y);
-
-			/* Local contrast adaptation: */
-			edges[0] *= step(finalDelta, m_local_contrast_adaptation_factor * delta_x);
-			edges[1] *= step(finalDelta, m_local_contrast_adaptation_factor * delta_y);
-		}
-	}
+	/* Local contrast adaptation: */
+	if (finalDelta > m_local_contrast_adaptation_factor * Dleft)
+		edges[0] = 0.0;
+	if (finalDelta > m_local_contrast_adaptation_factor * Dtop)
+		edges[1] = 0.0;
 }
 
 /**
@@ -440,7 +437,9 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 	 */
 	if (e[0] > 0.0) {
 		d1 = searchDiag1(edgesImage, x, y, -1, 1, &end, &found1);
-		d1 += (int)end; /* Increment d1 if ended with north edge */
+		/* Ended with north edge? */
+		if (end > 0.0)
+			d1++;
 	}
 	else {
 		d1 = 0;
@@ -449,29 +448,31 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 	d2 = searchDiag1(edgesImage, x, y, 1, -1, &end, &found2);
 
 	if (d1 + d2 > 2) { /* d1 + d2 + 1 > 3 */
-		int c[2];
+		/* Fetch the crossing edges: */
 		int e1 = 0, e2 = 0;
+		/* e1, e2
+		 *  0: none
+		 *  1: vertical   (e1: down, e2: up)
+		 *  2: horizontal (e1: left, e2: right)
+		 *  3: both
+		 */
 		if (found1) {
-			/* Fetch the crossing edges: */
 			int co_x = x - d1, co_y = y + d1;
 			edgesImage->getPixel(co_x - 1, co_y, edges);
-			c[0] = (int)edges[1]; /* ...->down->left->left */
+			if (edges[1] > 0.0)
+				e1 += 2; /* ...->left->left */
 			edgesImage->getPixel(co_x, co_y, edges);
-			c[1] = (int)edges[0]; /* ...->left->down->down */
-
-			/* Merge crossing edges at each side into a single value: */
-			e1 = 2 * c[0] + c[1];
+			if (edges[0] > 0.0)
+				e1 += 1; /* ...->left->down->down */
 		}
 		if (found2) {
-			/* Fetch the crossing edges: */
 			int co_x = x + d2, co_y = y - d2;
 			edgesImage->getPixel(co_x + 1, co_y, edges);
-			c[0] = (int)edges[1]; /* ...->up->right->right */
+			if (edges[1] > 0.0)
+				e2 += 2; /* ...->right->right */
 			edgesImage->getPixel(co_x + 1, co_y - 1, edges);
-			c[1] = (int)edges[0]; /* ...->right->up->up */
-
-			/* Merge crossing edges at each side into a single value: */
-			e2 = 2 * c[0] + c[1];
+			if (edges[0] > 0.0)
+				e2 += 1; /* ...->right->up->up */
 		}
 
 		/* Fetch the areas for this line: */
@@ -501,7 +502,9 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 	edgesImage->getPixel(x + 1, y, edges);
 	if (edges[0] > 0.0) {
 		d2 = searchDiag2(edgesImage, x, y, 1, 1, &end, &found2);
-		d2 += (int)end; /* Increment d2 if ended with north edge */
+		/* Ended with north edge? */
+		if (end > 0.0)
+			d2++;
 	}
 	else {
 		d2 = 0;
@@ -509,23 +512,30 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 	}
 
 	if (d1 + d2 > 2) { /* d1 + d2 + 1 > 3 */
-		int c[2];
+		/* Fetch the crossing edges: */
 		int e1 = 0, e2 = 0;
+		/* e1, e2
+		 *  0: none
+		 *  1: vertical   (e1: up, e2: down)
+		 *  2: horizontal (e1: left, e2: right)
+		 *  3: both
+		 */
 		if (found1) {
-			/* Fetch the crossing edges: */
 			int co_x = x - d1, co_y = y - d1;
 			edgesImage->getPixel(co_x - 1, co_y, edges);
-			c[0] = (int)edges[1]; /* ...->up->left->left */
+			if (edges[1] > 0.0)
+				e1 += 2; /* ...->left->left */
 			edgesImage->getPixel(co_x, co_y - 1, edges);
-			c[1] = (int)edges[0]; /* ...->left->up->up */
-			e1 = 2 * c[0] + c[1];
+			if (edges[0] > 0.0)
+				e1 += 1; /* ...->left->up->up */
 		}
 		if (found2) {
 			int co_x = x + d2, co_y = y + d2;
 			edgesImage->getPixel(co_x + 1, co_y, edges);
-			c[0] = (int)edges[1]; /* ...->down->right->right */
-			c[1] = (int)edges[0]; /* ...->right->down->down */
-			e2 = 2 * c[0] + c[1];
+			if (edges[1] > 0.0)
+				e2 += 2; /* ...->right->right */
+			if (edges[0] > 0.0)
+				e2 += 1; /* ...->right->down->down */
 		}
 
 		/* Fetch the areas for this line: */
@@ -619,12 +629,12 @@ int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
  * Ok, we have the distance and both crossing edges. So, what are the areas
  * at each side of current edge?
  */
-static void area(float sqrt_d1, float sqrt_d2, float e1, float e2, float offset,
+static void area(float sqrt_d1, float sqrt_d2, int e1, int e2, float offset,
 		 /* out */ float weights[2])
 {
 	/* Rounding prevents precision errors of bilinear filtering: */
-	float x = (float)SMAA_AREATEX_MAX_DISTANCE * roundf(4.0 * e1) + sqrt_d1;
-	float y = (float)SMAA_AREATEX_MAX_DISTANCE * roundf(4.0 * e2) + sqrt_d2;
+	float x = (float)(SMAA_AREATEX_MAX_DISTANCE * e1) + sqrt_d1;
+	float y = (float)(SMAA_AREATEX_MAX_DISTANCE * e2) + sqrt_d2;
 
 	/* We do a bias for mapping to texel space: */
 	x += 0.5;
@@ -737,10 +747,19 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		/* Now fetch the left and right crossing edges, two at a time using bilinear */
 		/* filtering. Sampling at -0.25 enables to discern what value each edge has: */
 		float edges[4];
-		sampleOffsetVertical(edgesImage, left, y, -0.25, edges);
-		float e1 = edges[0];
-		sampleOffsetVertical(edgesImage, right + 1, y, -0.25, edges);
-		float e2 = edges[0];
+		int e1 = 0, e2 = 0;
+		edgesImage->getPixel(left, y - 1, edges);
+		if (edges[0] > 0.0)
+			e1 += 1;
+		edgesImage->getPixel(left, y, edges);
+		if (edges[0] > 0.0)
+			e1 += 3;
+		edgesImage->getPixel(right + 1, y - 1, edges);
+		if (edges[0] > 0.0)
+			e2 += 1;
+		edgesImage->getPixel(right + 1, y, edges);
+		if (edges[0] > 0.0)
+			e2 += 3;
 
 		/* area() below needs a sqrt, as the areas texture is compressed */
 		/* quadratically: */
@@ -766,10 +785,19 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 
 		/* Fetch the top ang bottom crossing edges: */
 		float edges[4];
-		sampleOffsetHorizontal(edgesImage, x, top, -0.25, edges);
-		float e1 = edges[1];
-		sampleOffsetHorizontal(edgesImage, x, bottom + 1, -0.25, edges);
-		float e2 = edges[1];
+		int e1 = 0, e2 = 0;
+		edgesImage->getPixel(x - 1, top, edges);
+		if (edges[1] > 0.0)
+			e1 += 1;
+		edgesImage->getPixel(x, top, edges);
+		if (edges[1] > 0.0)
+			e1 += 3;
+		edgesImage->getPixel(x - 1, bottom + 1, edges);
+		if (edges[1] > 0.0)
+			e2 += 1;
+		edgesImage->getPixel(x, bottom + 1, edges);
+		if (edges[1] > 0.0)
+			e2 += 3;
 
 		/* area() below needs a sqrt, as the areas texture is compressed  */
 		/* quadratically: */
