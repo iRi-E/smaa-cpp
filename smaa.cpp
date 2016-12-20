@@ -406,13 +406,13 @@ static void areaDiag(int d1, int d2, int e1, int e2, float offset,
 /**
  * This searches for diagonal patterns and returns the corresponding weights.
  */
-void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, float e[2],
+void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, const float edges[2],
 				       const float subsampleIndices[4],
 				       /* out */ float weights[2])
 {
 	int d1, d2;
 	bool found1, found2;
-	float end, edges[4];
+	float end, e[4], c[4];
 
 	weights[0] = weights[1] = 0.0;
 
@@ -435,7 +435,7 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 	 *   |
 	 *
 	 */
-	if (e[0] > 0.0) {
+	if (edges[0] > 0.0) {
 		d1 = searchDiag1(edgesImage, x, y, -1, 1, &end, &found1);
 		/* Ended with north edge? */
 		if (end > 0.0)
@@ -458,20 +458,20 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 		 */
 		if (found1) {
 			int co_x = x - d1, co_y = y + d1;
-			edgesImage->getPixel(co_x - 1, co_y, edges);
-			if (edges[1] > 0.0)
+			edgesImage->getPixel(co_x - 1, co_y, c);
+			if (c[1] > 0.0)
 				e1 += 2; /* ...->left->left */
-			edgesImage->getPixel(co_x, co_y, edges);
-			if (edges[0] > 0.0)
+			edgesImage->getPixel(co_x, co_y, c);
+			if (c[0] > 0.0)
 				e1 += 1; /* ...->left->down->down */
 		}
 		if (found2) {
 			int co_x = x + d2, co_y = y - d2;
-			edgesImage->getPixel(co_x + 1, co_y, edges);
-			if (edges[1] > 0.0)
+			edgesImage->getPixel(co_x + 1, co_y, c);
+			if (c[1] > 0.0)
 				e2 += 2; /* ...->right->right */
-			edgesImage->getPixel(co_x + 1, co_y - 1, edges);
-			if (edges[0] > 0.0)
+			edgesImage->getPixel(co_x + 1, co_y - 1, c);
+			if (c[0] > 0.0)
 				e2 += 1; /* ...->right->up->up */
 		}
 
@@ -499,8 +499,8 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 	 *
 	 */
 	d1 = searchDiag2(edgesImage, x, y, -1, -1, &end, &found1);
-	edgesImage->getPixel(x + 1, y, edges);
-	if (edges[0] > 0.0) {
+	edgesImage->getPixel(x + 1, y, e);
+	if (e[0] > 0.0) {
 		d2 = searchDiag2(edgesImage, x, y, 1, 1, &end, &found2);
 		/* Ended with north edge? */
 		if (end > 0.0)
@@ -522,19 +522,19 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, fl
 		 */
 		if (found1) {
 			int co_x = x - d1, co_y = y - d1;
-			edgesImage->getPixel(co_x - 1, co_y, edges);
-			if (edges[1] > 0.0)
+			edgesImage->getPixel(co_x - 1, co_y, c);
+			if (c[1] > 0.0)
 				e1 += 2; /* ...->left->left */
-			edgesImage->getPixel(co_x, co_y - 1, edges);
-			if (edges[0] > 0.0)
+			edgesImage->getPixel(co_x, co_y - 1, c);
+			if (c[0] > 0.0)
 				e1 += 1; /* ...->left->up->up */
 		}
 		if (found2) {
 			int co_x = x + d2, co_y = y + d2;
-			edgesImage->getPixel(co_x + 1, co_y, edges);
-			if (edges[1] > 0.0)
+			edgesImage->getPixel(co_x + 1, co_y, c);
+			if (c[1] > 0.0)
 				e2 += 2; /* ...->right->right */
-			if (edges[0] > 0.0)
+			if (c[0] > 0.0)
 				e2 += 1; /* ...->right->down->down */
 		}
 
@@ -719,7 +719,7 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 					    const float subsampleIndices[4],
 					    /* out */ float weights[4])
 {
-	float edges[4], e[4];
+	float edges[4], c[4];
 
 	weights[0] = weights[1] = weights[2] = weights[3] = 0.0;
 	edgesImage->getPixel(x, y, edges);
@@ -743,17 +743,17 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 
 		/* Now fetch the left and right crossing edges: */
 		int e1 = 0, e2 = 0;
-		edgesImage->getPixel(left, y - 1, e);
-		if (e[0] > 0.0)
+		edgesImage->getPixel(left, y - 1, c);
+		if (c[0] > 0.0)
 			e1 += 1;
-		edgesImage->getPixel(left, y, e);
-		if (e[0] > 0.0)
+		edgesImage->getPixel(left, y, c);
+		if (c[0] > 0.0)
 			e1 += 3;
-		edgesImage->getPixel(right + 1, y - 1, e);
-		if (e[0] > 0.0)
+		edgesImage->getPixel(right + 1, y - 1, c);
+		if (c[0] > 0.0)
 			e2 += 1;
-		edgesImage->getPixel(right + 1, y, e);
-		if (e[0] > 0.0)
+		edgesImage->getPixel(right + 1, y, c);
+		if (c[0] > 0.0)
 			e2 += 3;
 
 		/* Ok, we know how this pattern looks like, now it is time for getting */
@@ -774,17 +774,17 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 
 		/* Fetch the top ang bottom crossing edges: */
 		int e1 = 0, e2 = 0;
-		edgesImage->getPixel(x - 1, top, e);
-		if (e[1] > 0.0)
+		edgesImage->getPixel(x - 1, top, c);
+		if (c[1] > 0.0)
 			e1 += 1;
-		edgesImage->getPixel(x, top, e);
-		if (e[1] > 0.0)
+		edgesImage->getPixel(x, top, c);
+		if (c[1] > 0.0)
 			e1 += 3;
-		edgesImage->getPixel(x - 1, bottom + 1, e);
-		if (e[1] > 0.0)
+		edgesImage->getPixel(x - 1, bottom + 1, c);
+		if (c[1] > 0.0)
 			e2 += 1;
-		edgesImage->getPixel(x, bottom + 1, e);
-		if (e[1] > 0.0)
+		edgesImage->getPixel(x, bottom + 1, c);
+		if (c[1] > 0.0)
 			e2 += 3;
 
 		/* Get the area for this direction: */

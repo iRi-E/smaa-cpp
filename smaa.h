@@ -290,7 +290,7 @@ private:
 	void calculatePredicatedThreshold(int x, int y, ImageReader *predicationImage, float threshold[2]);
 	int searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int dy, float *end, bool *found);
 	int searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int dy, float *end, bool *found);
-	void calculateDiagWeights(ImageReader *edgesImage, int x, int y, float e[2],
+	void calculateDiagWeights(ImageReader *edgesImage, int x, int y, const float edges[2],
 				  const float subsampleIndices[4], float weights[2]);
 	int searchXLeft(ImageReader *edgesImage, int x, int y);
 	int searchXRight(ImageReader *edgesImage, int x, int y);
