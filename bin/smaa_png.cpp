@@ -7,7 +7,7 @@
  *
  */
 
-/* filter.cpp */
+/* smaa_png.cpp */
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -251,4 +251,4 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-/* filter.cpp ends here */
+/* smaa_png.cpp ends here */
