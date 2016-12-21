@@ -34,6 +34,7 @@ void abort_(const char * s, ...)
 int width, height, rowbytes;
 png_byte color_type;
 png_byte bit_depth;
+bool has_alpha;
 
 png_structp png_ptr;
 png_infop info_ptr;
@@ -75,12 +76,10 @@ void read_png_file(char* file_name)
 	height = png_get_image_height(png_ptr, info_ptr);
 	color_type = png_get_color_type(png_ptr, info_ptr);
 	bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+	has_alpha = (png_get_channels(png_ptr, info_ptr) & 1) == 0;
 
-	/* Expand any grayscale, RGB, or palette images to RGBA */
+	/* Expand any grayscale or palette images to RGB */
 	png_set_expand(png_ptr);
-
-	/* Reduce any 16-bits-per-sample images to 8-bits-per-sample */
-	png_set_strip_16(png_ptr);
 
 	number_of_passes = png_set_interlace_handling(png_ptr);
 	png_read_update_info(png_ptr, info_ptr);
@@ -137,8 +136,9 @@ void write_png_file(char* file_name)
 		abort_("[write_png_file] Error during writing header");
 
 	png_set_IHDR(png_ptr, info_ptr, width, height,
-		     8, 6, PNG_INTERLACE_NONE,
-		     PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+		     (bit_depth < 8) ? 8 : bit_depth, /* 1, 2, 4 bit data was expanded */
+		     has_alpha ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB,
+		     PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
 
 	png_write_info(png_ptr, info_ptr);
 
@@ -164,6 +164,13 @@ void write_png_file(char* file_name)
 	free(row_pointers);
 }
 
+inline void write_pixel16(png_byte **ptr, float color)
+{
+	unsigned int c = (unsigned int)roundf(color * 65535.0);
+	*(*ptr)++ = (png_byte)(c >> 8);
+	*(*ptr)++ = (png_byte)(c & 0xff);
+}
+
 void process_file(void)
 {
 	using namespace SMAA;
@@ -171,10 +178,12 @@ void process_file(void)
 	Image *orignImage, *edgesImage, *blendImage, *finalImage;
 	float color[4], edges[4], weights[4];
 
+	/* setup SMAA pixel shader */
 	PixelShader ps(CONFIG_PRESET_HIGH);
 	//ps.setEnableDiagDetection(false);
 	//ps.setEnableCornerDetection(false);
 
+	/* prepare image buffers */
 	try {
 		orignImage = new Image(width, height);
 		edgesImage = new Image(width, height);
@@ -183,19 +192,29 @@ void process_file(void)
 	}
 	catch (ERROR_TYPE e) { abort_("Memory allocation failed"); }
 
+	/* read from png buffer */
 	for (int y = 0; y < height; y++) {
 		png_byte* ptr = row_pointers[y];
 		for (int x = 0; x < width; x++) {
-			color[0] = (float)*ptr++ / 255.0;
-			color[1] = (float)*ptr++ / 255.0;
-			color[2] = (float)*ptr++ / 255.0;
-			color[3] = (float)*ptr++ / 255.0;
+			if (bit_depth == 16) {
+				color[0] = (float)((*ptr++ << 8) + *ptr++) / 65535.0;
+				color[1] = (float)((*ptr++ << 8) + *ptr++) / 65535.0;
+				color[2] = (float)((*ptr++ << 8) + *ptr++) / 65535.0;
+				color[3] = has_alpha ? (float)((*ptr++ << 8) + *ptr++) / 65535.0 : 1.0;
+			}
+			else {
+				color[0] = (float)*ptr++ / 255.0;
+				color[1] = (float)*ptr++ / 255.0;
+				color[2] = (float)*ptr++ / 255.0;
+				color[3] = has_alpha ? (float)*ptr++ / 255.0 : 1.0;
+			}
 			orignImage->putPixel(x, y, color);
 		}
 	}
 
-//	for (int i = 0; i < 10; i++) {
+//	for (int i = 0; i < 100; i++) {
 
+	/* do anti-aliasing (3 passes) */
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			ps.colorEdgeDetection(x, y, orignImage, NULL, edges);
@@ -219,6 +238,7 @@ void process_file(void)
 
 //	}
 
+	/* write back to png buffer */
 	for (int y = 0; y < height; y++) {
 		png_byte* ptr = row_pointers[y];
 		for (int x = 0; x < width; x++) {
@@ -226,13 +246,24 @@ void process_file(void)
 			//edgesImage->getPixel(x, y, color);
 			//blendImage->getPixel(x, y, color);
 			finalImage->getPixel(x, y, color);
-			*ptr++ = (png_byte)roundf(color[0] * 255.0);
-			*ptr++ = (png_byte)roundf(color[1] * 255.0);
-			*ptr++ = (png_byte)roundf(color[2] * 255.0);
-			*ptr++ = (png_byte)roundf(color[3] * 255.0);
+			if (bit_depth == 16) {
+				write_pixel16(&ptr, color[0]);
+				write_pixel16(&ptr, color[1]);
+				write_pixel16(&ptr, color[2]);
+				if (has_alpha)
+					write_pixel16(&ptr, color[3]);
+			}
+			else {
+				*ptr++ = (png_byte)roundf(color[0] * 255.0);
+				*ptr++ = (png_byte)roundf(color[1] * 255.0);
+				*ptr++ = (png_byte)roundf(color[2] * 255.0);
+				if (has_alpha)
+					*ptr++ = (png_byte)roundf(color[3] * 255.0);
+			}
 		}
 	}
 
+	/* delete image buffers */
 	delete orignImage;
 	delete edgesImage;
 	delete blendImage;
