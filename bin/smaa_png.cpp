@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <chrono>
 
 #define PNG_DEBUG 3
 #include <png.h>
@@ -21,7 +22,17 @@
 
 #include "smaa.h"
 
-void abort_(const char * s, ...)
+static const float FLOAT_VAL_NOT_SPECIFIED = -1.0;
+static const int INT_VAL_NOT_SPECIFIED = -2;
+static const int END_OF_LIST = -1;
+
+enum edge_detection {
+	ED_LUMA,
+	ED_COLOR,
+	ED_DEPTH,
+};
+
+static void abort_(const char * s, ...)
 {
 	va_list args;
 	va_start(args, s);
@@ -31,17 +42,95 @@ void abort_(const char * s, ...)
 	abort();
 }
 
-int width, height, rowbytes;
-png_byte color_type;
-png_byte bit_depth;
-bool has_alpha;
+static int width, height, rowbytes;
+static png_byte color_type;
+static png_byte bit_depth;
+static bool has_alpha;
 
-png_structp png_ptr;
-png_infop info_ptr;
-int number_of_passes;
-png_bytep * row_pointers;
+static png_structp png_ptr;
+static png_infop info_ptr;
+static int number_of_passes;
+static png_bytep *row_pointers;
 
-void read_png_file(char* file_name)
+
+struct item {
+	int id;
+	char name[12];
+};
+
+static const struct item color_types[6] = {
+	{PNG_COLOR_TYPE_GRAY,       "GRAY"},
+	{PNG_COLOR_TYPE_GRAY_ALPHA, "GRAY_ALPHA"},
+	{PNG_COLOR_TYPE_PALETTE,    "PALETTE"},
+	{PNG_COLOR_TYPE_RGB,        "RGB"},
+	{PNG_COLOR_TYPE_RGB_ALPHA,  "RGB_ALPHA"},
+	{END_OF_LIST, ""}
+};
+
+static const struct item edge_detection_types[4] = {
+	{ED_LUMA,  "luma"},
+	{ED_COLOR, "color"},
+	{ED_DEPTH, "depth"},
+	{END_OF_LIST, ""}
+};
+
+static const struct item config_presets[6] = {
+	{SMAA::CONFIG_PRESET_LOW,     "low"},
+	{SMAA::CONFIG_PRESET_MEDIUM,  "medium"},
+	{SMAA::CONFIG_PRESET_HIGH,    "high"},
+	{SMAA::CONFIG_PRESET_ULTRA,   "ultra"},
+	{SMAA::CONFIG_PRESET_EXTREME, "extreme"},
+	{END_OF_LIST, ""}
+};
+
+static const char *assoc(int key, const struct item *list)
+{
+	int i = 0;
+	while(list[i].id != END_OF_LIST) {
+		if (key == list[i].id)
+			return list[i].name;
+		i++;
+	}
+	return NULL;
+}
+
+static int rassoc(const char *key, const struct item *list)
+{
+	int i = 0;
+	while(list[i].id != END_OF_LIST) {
+		if (strcmp(key, list[i].name) == 0)
+			return list[i].id;
+		i++;
+	}
+	return END_OF_LIST;
+}
+
+static int check_png_filename(const char *file_name)
+{
+	const char *extension = strrchr(file_name, '.');
+
+	if (!extension)
+		fprintf(stderr, "File name has no extension: %s\n", file_name);
+	else if (strcmp(extension, ".png") != 0 && strcmp(extension, ".PNG") != 0)
+		fprintf(stderr, "File extension is not \".png\": %s\n", file_name);
+	else
+		return 0;
+
+	return 1;
+}
+
+static void print_png_info(const char *file_name, const char *inout_label)
+{
+	const char *type_name;
+
+	fprintf(stderr, "%s file: %s\n", inout_label, file_name);
+	fprintf(stderr, "  width x height: %d x %d\n", width, height);
+	fprintf(stderr, "  color type: %s\n", assoc(color_type, color_types));
+	fprintf(stderr, "  alpha channel or tRNS chanks: %s\n", has_alpha ? "yes" : "no");
+	fprintf(stderr, "  bit depth: %d%s\n", bit_depth, (bit_depth < 8) ? " (expanded to 8bit)" : "");
+}
+
+static void read_png_file(const char *file_name, bool print_info)
 {
 	unsigned char header[8];    // 8 is the maximum size that can be checked
 
@@ -76,13 +165,31 @@ void read_png_file(char* file_name)
 	height = png_get_image_height(png_ptr, info_ptr);
 	color_type = png_get_color_type(png_ptr, info_ptr);
 	bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-	has_alpha = (png_get_channels(png_ptr, info_ptr) & 1) == 0;
+
+	/* is there transparency data? */
+	if (color_type == PNG_COLOR_TYPE_RGBA || color_type == PNG_COLOR_TYPE_GA)
+		has_alpha = true;
+	else {
+		png_bytep trans = NULL;
+		int num_trans = 0;
+		png_color_16p trans_values = NULL;
+
+		png_get_tRNS(png_ptr, info_ptr, &trans, &num_trans, &trans_values);
+		has_alpha = (trans != NULL && num_trans > 0 || trans_values != NULL);
+	}
+
+	/* print information of input image */
+	if (print_info)
+		print_png_info(file_name, "input");
 
 	/* Expand any grayscale or palette images to RGB */
 	png_set_expand(png_ptr);
 
 	number_of_passes = png_set_interlace_handling(png_ptr);
 	png_read_update_info(png_ptr, info_ptr);
+
+	color_type = has_alpha ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB;
+	bit_depth = (bit_depth < 8) ? 8 : bit_depth;
 
 	/* read file */
 	if (setjmp(png_jmpbuf(png_ptr)))
@@ -91,9 +198,9 @@ void read_png_file(char* file_name)
 	row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
 
 	if (bit_depth == 16)
-		rowbytes = width*8;
+		rowbytes = width * (has_alpha ? 8 : 6);
 	else
-		rowbytes = width*4;
+		rowbytes = width * (has_alpha ? 4 : 3);
 
 	for (int y=0; y<height; y++)
 		row_pointers[y] = (png_byte*) malloc(rowbytes);
@@ -107,8 +214,12 @@ void read_png_file(char* file_name)
 }
 
 
-void write_png_file(char* file_name)
+static void write_png_file(const char *file_name, bool print_info)
 {
+	/* print information of output image */
+	if (print_info)
+		print_png_info(file_name, "output");
+
 	/* create file */
 	FILE *fp = fopen(file_name, "wb");
 	if (!fp)
@@ -136,9 +247,8 @@ void write_png_file(char* file_name)
 		abort_("[write_png_file] Error during writing header");
 
 	png_set_IHDR(png_ptr, info_ptr, width, height,
-		     (bit_depth < 8) ? 8 : bit_depth, /* 1, 2, 4 bit data was expanded */
-		     has_alpha ? PNG_COLOR_TYPE_RGB_ALPHA : PNG_COLOR_TYPE_RGB,
-		     PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+		     bit_depth, color_type, PNG_INTERLACE_NONE,
+		     PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
 
 	png_write_info(png_ptr, info_ptr);
 
@@ -164,24 +274,66 @@ void write_png_file(char* file_name)
 	free(row_pointers);
 }
 
-inline void write_pixel16(png_byte **ptr, float color)
+static inline void write_pixel16(png_byte **ptr, float color)
 {
 	unsigned int c = (unsigned int)roundf(color * 65535.0);
 	*(*ptr)++ = (png_byte)(c >> 8);
 	*(*ptr)++ = (png_byte)(c & 0xff);
 }
 
-void process_file(void)
+static void process_file(int preset, int detection_type, float threshold, float adaption,
+		  int ortho_steps, int diag_steps, int rounding, bool print_info)
 {
 	using namespace SMAA;
+	using namespace std::chrono;
 
-	Image *orignImage, *edgesImage, *blendImage, *finalImage;
-	float color[4], edges[4], weights[4];
+	Image *orignImage, *edgesImage, *blendImage, *finalImage, *depthImage;
+	float color[4], edges[4], weights[4], depth[4] = {0.0, 0.0, 0.0, 0.0};
+	const char *type_name;
+	steady_clock::time_point begin, end;
 
 	/* setup SMAA pixel shader */
-	PixelShader ps(CONFIG_PRESET_HIGH);
-	//ps.setEnableDiagDetection(false);
-	//ps.setEnableCornerDetection(false);
+	PixelShader ps(preset);
+	if (threshold != FLOAT_VAL_NOT_SPECIFIED)
+		ps.setThreshold(threshold);
+	if (adaption != FLOAT_VAL_NOT_SPECIFIED)
+		ps.setLocalContrastAdaptationFactor(adaption);
+	if (ortho_steps != INT_VAL_NOT_SPECIFIED)
+		ps.setMaxSearchSteps(ortho_steps);
+	if (diag_steps != INT_VAL_NOT_SPECIFIED) {
+		if (diag_steps != -1) {
+			ps.setEnableDiagDetection(true);
+			ps.setMaxSearchStepsDiag(diag_steps);
+		}
+		else
+			ps.setEnableDiagDetection(false);
+	}
+	if (rounding != INT_VAL_NOT_SPECIFIED) {
+		if (rounding != -1) {
+			ps.setEnableCornerDetection(true);
+			ps.setCornerRounding(rounding);
+		}
+		else
+			ps.setEnableCornerDetection(false);
+	}
+
+	if (print_info) {
+		fprintf(stderr, "\n");
+		fprintf(stderr, "edge detection type: %s\n", assoc(detection_type, edge_detection_types));
+		fprintf(stderr, "  threshold: %f\n",
+			(detection_type != ED_DEPTH) ? ps.getThreshold() : ps.getDepthThreshold());
+		fprintf(stderr, "  predicated thresholding: off (not supported)\n");
+		fprintf(stderr, "  local contrast adaption factor: %f\n", ps.getLocalContrastAdaptationFactor());
+		fprintf(stderr, "\n");
+		fprintf(stderr, "maximum search steps: %d\n", ps.getMaxSearchSteps());
+		fprintf(stderr, "diagonal search: %s\n", ps.getEnableDiagDetection() ? "on" : "off");
+		if (ps.getEnableDiagDetection())
+			fprintf(stderr, "  maximum diagonal search steps: %d\n", ps.getMaxSearchStepsDiag());
+		fprintf(stderr, "corner processing: %s\n", ps.getEnableCornerDetection() ? "on" : "off");
+		if (ps.getEnableCornerDetection())
+			fprintf(stderr, "  corner rounding: %d\n", ps.getCornerRounding());
+		fprintf(stderr, "\n");
+	}
 
 	/* prepare image buffers */
 	try {
@@ -189,6 +341,8 @@ void process_file(void)
 		edgesImage = new Image(width, height);
 		blendImage = new Image(width, height);
 		finalImage = new Image(width, height);
+		if (detection_type == ED_DEPTH)
+			depthImage = new Image(width, height);
 	}
 	catch (ERROR_TYPE e) { abort_("Memory allocation failed"); }
 
@@ -208,20 +362,57 @@ void process_file(void)
 				color[2] = (float)*ptr++ / 255.0;
 				color[3] = has_alpha ? (float)*ptr++ / 255.0 : 1.0;
 			}
+
+			if (detection_type == ED_DEPTH) {
+				depth[0] = color[3];
+				depthImage->putPixel(x, y, depth);
+				color[3] = 1.0;
+			}
+
 			orignImage->putPixel(x, y, color);
 		}
 	}
 
-//	for (int i = 0; i < 100; i++) {
-
-	/* do anti-aliasing (3 passes) */
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			ps.colorEdgeDetection(x, y, orignImage, NULL, edges);
-			edgesImage->putPixel(x, y, edges);
-		}
+	if (detection_type == ED_DEPTH) {
+		/* alpha channel was consumed as depth */
+		color_type = PNG_COLOR_TYPE_RGB;
+		has_alpha = false;
 	}
 
+	/* record starting time to calculate elapsed time */
+	if (print_info)
+		begin = steady_clock::now();
+
+	/* do anti-aliasing (3 passes) */
+	/* 1. edge detection */
+	switch (detection_type) {
+		case ED_LUMA:
+			for (int y = 0; y < height; y++) {
+				for (int x = 0; x < width; x++) {
+					ps.lumaEdgeDetection(x, y, orignImage, NULL, edges);
+					edgesImage->putPixel(x, y, edges);
+				}
+			}
+			break;
+		case ED_COLOR:
+			for (int y = 0; y < height; y++) {
+				for (int x = 0; x < width; x++) {
+					ps.colorEdgeDetection(x, y, orignImage, NULL, edges);
+					edgesImage->putPixel(x, y, edges);
+				}
+			}
+			break;
+		case ED_DEPTH:
+			for (int y = 0; y < height; y++) {
+				for (int x = 0; x < width; x++) {
+					ps.depthEdgeDetection(x, y, depthImage, edges);
+					edgesImage->putPixel(x, y, edges);
+				}
+			}
+			break;
+	}
+
+	/* 2. calculate blending weights */
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			ps.blendingWeightCalculation(x, y, edgesImage, NULL, weights);
@@ -229,6 +420,7 @@ void process_file(void)
 		}
 	}
 
+	/* 3. blend color with neighboring pixels */
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			ps.neighborhoodBlending(x, y, orignImage, blendImage, color);
@@ -236,7 +428,12 @@ void process_file(void)
 		}
 	}
 
-//	}
+	/* print elapsed time */
+	if (print_info) {
+		end = steady_clock::now();
+		long int elapsed_time = duration_cast<milliseconds>(end - begin).count();
+		fprintf(stderr, "elapsed time: %ld ms\n\n", elapsed_time);
+	}
 
 	/* write back to png buffer */
 	for (int y = 0; y < height; y++) {
@@ -268,16 +465,132 @@ void process_file(void)
 	delete edgesImage;
 	delete blendImage;
 	delete finalImage;
+	if (detection_type == ED_DEPTH)
+		delete depthImage;
 }
 
 int main(int argc, char **argv)
 {
-	if (argc != 3)
-		abort_("Usage: program_name <file_in> <file_out>");
+	int preset = SMAA::CONFIG_PRESET_HIGH;
+	int detection = ED_COLOR;
+	float threshold = FLOAT_VAL_NOT_SPECIFIED;
+	float adaption = FLOAT_VAL_NOT_SPECIFIED;
+	int ortho_steps = INT_VAL_NOT_SPECIFIED;
+	int diag_steps = INT_VAL_NOT_SPECIFIED;
+	int rounding = INT_VAL_NOT_SPECIFIED;
+	bool verbose = false;
+	bool help = false;
+	int status = 0;
+	int chr;
+	char *endptr;
 
-	read_png_file(argv[1]);
-	process_file();
-	write_png_file(argv[2]);
+	while ((chr = getopt(argc, argv, "p:e:t:a:s:d:c:vh")) != -1) {
+		switch(chr) {
+			case 'p':
+				preset = rassoc(optarg, config_presets);
+				if (preset == END_OF_LIST) {
+					fprintf(stderr, "Unknown preset name: %s\n", optarg);
+					status = 1;
+				}
+				break;
+			case 'e':
+				detection = rassoc(optarg, edge_detection_types);
+				if (detection == END_OF_LIST) {
+					fprintf(stderr, "Unknown detection type: %s\n", optarg);
+					status = 1;
+				}
+				break;
+			case 't':
+				threshold = strtof(optarg, &endptr);
+				if (threshold < 0.0 || *endptr != '\0') {
+					fprintf(stderr, "Invalid threshold: %s\n", optarg);
+					status = 1;
+				}
+				break;
+			case 'a':
+				adaption = strtof(optarg, &endptr);
+				if (adaption < 0.0 || *endptr != '\0') {
+					fprintf(stderr, "Invalid contrast adaption factor: %s\n", optarg);
+					status = 1;
+				}
+				break;
+			case 's':
+				ortho_steps = strtol(optarg, &endptr, 0);
+				if (ortho_steps < 0 || *endptr != '\0') {
+					fprintf(stderr, "Invalid maximum search steps: %s\n", optarg);
+					status = 1;
+				}
+				break;
+			case 'd':
+				diag_steps = strtol(optarg, &endptr, 0);
+				if (diag_steps < -1 || *endptr != '\0') { /* -1 is allowed, means disable the processing */
+					fprintf(stderr, "Invalid maximum diagonal search steps: %s\n", optarg);
+					status = 1;
+				}
+				break;
+			case 'c':
+				rounding = strtol(optarg, &endptr, 0);
+				if (rounding < -1 || *endptr != '\0') { /* -1 is allowed, means disable the processing */
+					fprintf(stderr, "Invalid corner rounding: %s\n", optarg);
+					status = 1;
+				}
+				break;
+			case 'v':
+				verbose = true;
+				break;
+			case 'h':
+				help = true;
+				break;
+			default:
+				if (strchr("petasdc", optopt))
+					fprintf(stderr, "Option -%c requires an argument.\n", optopt);
+				else
+					fprintf(stderr, "Unknown option: -%c\n", optopt);
+				status = 1;
+				break;
+		}
+
+		if (status != 0)
+			break;
+	}
+
+	if (status == 0 && !help) {
+		if (optind < argc - 2) {
+			fprintf(stderr, "Too much file names were specified.\n");
+			status = 1;
+		}
+		else if (optind > argc - 2) {
+			fprintf(stderr, "Two file names are required.\n");
+			status = 1;
+		}
+		else
+			status = check_png_filename(argv[argc - 2]) | check_png_filename(argv[argc - 1]);
+	}
+
+	if (status != 0 || help) {
+		fprintf(stderr, "Usage: %s [OPTION]... INFILE OUTFILE\n", argv[0]);
+		fprintf(stderr, "  -p PRESET     Specify base configuration preset\n");
+		fprintf(stderr, "                                                 [low|medium|high|ultra|extreme]\n");
+		fprintf(stderr, "  -e DETECTTYPE Specify edge detection type                   [luma|color|depth]\n");
+		fprintf(stderr, "                (Depth edge detection uses alpha channel as depths)\n");
+		fprintf(stderr, "  -t THRESHOLD  Specify threshold of edge detection                   [0.0, 5.0]\n");
+		fprintf(stderr, "  -a FACTOR     Specify local contrast adaption factor                [0.0, inf]\n");
+		fprintf(stderr, "  -s STEPS      Specify maximum search steps                            [0, 104]\n");
+		fprintf(stderr, "  -d STEPS      Specify maximum diagonal search steps\n");
+		fprintf(stderr, "                (-1 means disable diagonal processing)             -1 or [0, 18]\n");
+		fprintf(stderr, "  -c ROUNDING   Specify corner rounding\n");
+		fprintf(stderr, "                (-1 means disable corner processing)              -1 or [0, 100]\n");
+		fprintf(stderr, "  -v            Print details of what is being done\n");
+		fprintf(stderr, "  -h            Print this help and exit\n");
+		return status;
+	}
+
+	read_png_file(argv[argc - 2], verbose);
+	process_file(preset, detection, threshold, adaption, ortho_steps, diag_steps, rounding, verbose);
+	write_png_file(argv[argc - 1], verbose);
+
+	if (verbose)
+		fprintf(stderr, "\ndone.\n");
 
 	return 0;
 }
