@@ -909,31 +909,56 @@ int main(int argc, char **argv)
 	bool subsampling = false;
 	bool quantize = false;
 	bool tga = false;
-	char *outfile;
+	bool help = false;
+	char *outfile = NULL;
 	int status = 0;
 
-	for (int i = 1; i < argc - 1; i++) {
-		if (strcmp(argv[i], "-s") == 0)
-			subsampling = true;
-		else if (strcmp(argv[i], "-q") == 0)
-			quantize = true;
-		else if (strcmp(argv[i], "-t") == 0)
-			tga = true;
-		else {
-			fprintf(stderr, "Unknown option: %s\n", argv[i]);
+	for (int i = 1; i < argc; i++) {
+		char *ptr = argv[i];
+		if (*ptr++ == '-' && *ptr != '\0') {
+			char c;
+			while ((c = *ptr++) != '\0') {
+				if (c == 's')
+					subsampling = true;
+				else if (c == 'q')
+					quantize = true;
+				else if (c == 't')
+					tga = true;
+				else if (c == 'h')
+					help = true;
+				else {
+					fprintf(stderr, "Unknown option: -%c\n", c);
+					status = 1;
+					break;
+				}
+			}
+		}
+		else if (outfile) {
+			fprintf(stderr, "Too much file names: %s, %s\n", outfile, argv[i]);
 			status = 1;
 		}
+		else
+			outfile = argv[i];
+
+		if (status != 0)
+			break;
 	}
 
-	if (status == 0 && argc > 1) {
-		outfile = argv[argc - 1];
+	if (status == 0 && !help && !outfile) {
+		fprintf(stderr, "File name was not specified.\n");
+		status = 1;
 	}
-	else {
+
+	if (status != 0 || help) {
 		fprintf(stderr, "Usage: %s [OPTION]... OUTFILE\n", argv[0]);
-		fprintf(stderr, "Options: -s  Calculate data for subpixel rendering\n");
-		fprintf(stderr, "         -q  Quantize data to 256 levels\n");
-		fprintf(stderr, "         -t  Write .tga file instead of C/C++ source\n");
-		return 1;
+		fprintf(stderr, "Options:\n");
+		fprintf(stderr, "    -s    Calculate data for subpixel rendering\n");
+		fprintf(stderr, "    -q    Quantize data to 256 levels\n");
+		fprintf(stderr, "    -t    Write TGA image instead of C/C++ source\n");
+		fprintf(stderr, "    -h    Print this help and exit\n");
+		fprintf(stderr, "File name OUTFILE usually should have an extension such as .c, .h, or .tga,\n");
+		fprintf(stderr, "except for a special name '-' that means standard output.\n");
+		return status;
 	}
 
 	/* Calculate areatex data */
@@ -943,8 +968,15 @@ int main(int argc, char **argv)
 	for (int i = 0; i < (subsampling ? 5 : 1); i++)
 		areatex_diag(i);
 
-	/* Generate C++ source file or .tga file */
-	return generate_file(outfile, subsampling, quantize, tga);
+	/* Generate C++ source file or .tga file, or write the data to stdout */
+	if (strcmp(outfile, "-") != 0)
+		return generate_file(outfile, subsampling, quantize, tga);
+	else if (tga)
+		write_tga(stdout, subsampling);
+	else
+		write_csource(stdout, subsampling, quantize);
+
+	return 0;
 }
 
 /* smaa_areatex.cpp ends here */
