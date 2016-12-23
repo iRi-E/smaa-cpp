@@ -336,49 +336,53 @@ void PixelShader::depthEdgeDetection(int x, int y,
 /**
  * These functions allows to perform diagonal pattern searches.
  */
-int PixelShader::searchDiag1(ImageReader *edgesImage, int x, int y, int dx, int dy,
-			     /* out */ float *end, bool *found)
+int PixelShader::searchDiag1(ImageReader *edgesImage, int x, int y, int dir,
+			     /* out */ bool *found)
 {
 	float edges[4];
-	int dist = -1;
+	int end = x + m_max_search_steps_diag * dir;
 	*found = false;
 
-	while (dist < (m_max_search_steps_diag - 1)) {
-		x += dx;
-		y += dy;
-		dist++;
-		edgesImage->getPixel(x, y, edges); /* west & north */
-		if (!(edges[0] > 0.9 && edges[1] > 0.9)) {
+	while (x != end) {
+		x += dir;
+		y -= dir; /* bottom-left or top-right */
+		edgesImage->getPixel(x, y, edges);
+		if (edges[1] == 0.0) { /* north */
+			*found = true;
+			return x - dir;
+		}
+		if (edges[0] == 0.0) { /* west */
 			*found = true;
 			break;
 		}
 	}
 
-	*end = edges[1]; /* return north */
-	return dist;
+	return (dir < 0) ? x : x - dir; /* Ended with north edge if dir < 0 (i.e. dy > 0) */
 }
 
-int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dx, int dy,
-			     /* out */ float *end, bool *found)
+int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dir,
+			     /* out */ bool *found)
 {
-	float edges1[4], edges2[4];
-	int dist = -1;
+	float edges[4];
+	int end = x + m_max_search_steps_diag * dir;
 	*found = false;
 
-	while (dist < (m_max_search_steps_diag - 1)) {
-		x += dx;
-		y += dy;
-		dist++;
-		edgesImage->getPixel(x + 1, y, edges1); /* east */
-		edgesImage->getPixel(x, y, edges2);     /* north */
-		if (!(edges1[0] > 0.9 && edges2[1] > 0.9)) {
+	while (x != end) {
+		x += dir;
+		y += dir; /* top-left or bottom-right */
+		edgesImage->getPixel(x, y, edges);
+		if (edges[1] == 0.0) { /* north */
+			*found = true;
+			return x - dir;
+		}
+		edgesImage->getPixel(x + 1, y, edges);
+		if (edges[0] == 0.0) { /* east */
 			*found = true;
 			break;
 		}
 	}
 
-	*end = edges2[1]; /* return north */
-	return dist;
+	return (dir > 0) ? x : x - dir; /* Ended with north edge if dir > 0 (i.e. dy > 0) */
 }
 
 /**
@@ -411,7 +415,7 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 {
 	int d1, d2;
 	bool found1, found2;
-	float end, e[4], c[4];
+	float e[4], c[4];
 
 	weights[0] = weights[1] = 0.0;
 
@@ -434,17 +438,14 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 	 *   |
 	 *
 	 */
-	if (edges[0] > 0.0) {
-		d1 = searchDiag1(edgesImage, x, y, -1, 1, &end, &found1);
-		/* Ended with north edge? */
-		if (end > 0.0)
-			d1++;
+	if (edges[0] > 0.0) { /* west of (x, y) */
+		d1 = x - searchDiag1(edgesImage, x, y, -1, &found1);
 	}
 	else {
 		d1 = 0;
 		found1 = true;
 	}
-	d2 = searchDiag1(edgesImage, x, y, 1, -1, &end, &found2);
+	d2 = searchDiag1(edgesImage, x, y, 1, &found2) - x;
 
 	if (d1 + d2 > 2) { /* d1 + d2 + 1 > 3 */
 		/* Fetch the crossing edges: */
@@ -497,13 +498,10 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 	 *                        |
 	 *
 	 */
-	d1 = searchDiag2(edgesImage, x, y, -1, -1, &end, &found1);
+	d1 = x - searchDiag2(edgesImage, x, y, -1, &found1);
 	edgesImage->getPixel(x + 1, y, e);
-	if (e[0] > 0.0) {
-		d2 = searchDiag2(edgesImage, x, y, 1, 1, &end, &found2);
-		/* Ended with north edge? */
-		if (end > 0.0)
-			d2++;
+	if (e[0] > 0.0) { /* east of (x, y) */
+		d2 = searchDiag2(edgesImage, x, y, 1, &found2) - x;
 	}
 	else {
 		d2 = 0;
@@ -738,7 +736,7 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		/* Find the distance to the left and the right: */
 		int left = searchXLeft(edgesImage, x, y);
 		int right = searchXRight(edgesImage, x, y);
-		int d1 = abs(left - x), d2 = abs(right - x);
+		int d1 = x - left, d2 = right - x;
 
 		/* Now fetch the left and right crossing edges: */
 		int e1 = 0, e2 = 0;
@@ -769,7 +767,7 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		/* Find the distance to the top and the bottom: */
 		int top = searchYUp(edgesImage, x, y);
 		int bottom = searchYDown(edgesImage, x, y);
-		int d1 = abs(top - y), d2 = abs(bottom - y);
+		int d1 = y - top, d2 = bottom - y;
 
 		/* Fetch the top ang bottom crossing edges: */
 		int e1 = 0, e2 = 0;
