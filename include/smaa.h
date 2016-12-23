@@ -37,6 +37,7 @@ enum CONFIG_PRESET {
 	CONFIG_PRESET_MEDIUM,
 	CONFIG_PRESET_HIGH,
 	CONFIG_PRESET_ULTRA,
+	CONFIG_PRESET_EXTREME,
 };
 
 /*-----------------------------------------------------------------------------*/
@@ -60,12 +61,12 @@ private:
 
 public:
 	PixelShader() { setPresets(CONFIG_PRESET_HIGH); }
-	PixelShader(CONFIG_PRESET preset) { setPresets(preset); }
+	PixelShader(int preset) { setPresets(preset); }
 
 	/*-----------------------------------------------------------------------------*/
 	/* SMAA Presets */
 
-	void setPresets(CONFIG_PRESET preset)
+	void setPresets(int preset)
 	{
 		m_enable_diag_detection = true;
 		m_enable_corner_detection = true;
@@ -105,21 +106,29 @@ public:
 				m_max_search_steps_diag = 16;
 				m_corner_rounding = 25;
 				break;
+			case CONFIG_PRESET_EXTREME:
+				m_threshold = 0.05;
+				m_max_search_steps = 104;
+				m_max_search_steps_diag = 18;
+				m_corner_rounding = 25;
+				break;
 		}
 	}
 
 	/*-----------------------------------------------------------------------------*/
-	/* Configurable Defines */
+	/* Set/get parameters */
 
 	/**
 	 * Specify whether to enable diagonal processing.
 	 */
-	void setEnableDiagDetection(bool enable) { m_enable_diag_detection = enable; };
+	void setEnableDiagDetection(bool enable) { m_enable_diag_detection = enable; }
+	bool getEnableDiagDetection() { return m_enable_diag_detection; }
 
 	/**
 	 * Specify whether to enable corner processing.
 	 */
-	void setEnableCornerDetection(bool enable) { m_enable_corner_detection = enable; };
+	void setEnableCornerDetection(bool enable) { m_enable_corner_detection = enable; }
+	bool getEnableCornerDetection() { return m_enable_corner_detection; }
 
 	/**
 	 * Specify whether to enable predicated thresholding.
@@ -137,7 +146,8 @@ public:
 	 * Killzone 3, by using the light accumulation buffer. More information here:
 	 *     http://iryoku.com/aacourse/downloads/06-MLAA-on-PS3.pptx
 	 */
-	void setEnablePredication(bool enable) { m_enable_predication = enable; };
+	void setEnablePredication(bool enable) { m_enable_predication = enable; }
+	bool getEnablePredication() { return m_enable_predication; }
 
 	/**
 	 * Specify the threshold or sensitivity to edges.
@@ -151,7 +161,8 @@ public:
 	 *   If temporal supersampling is used, 0.2 could be a reasonable value, as low
 	 *   contrast edges are properly filtered by just 2x.
 	 */
-	void setThreshold(float threshold) { m_threshold = threshold; };
+	void setThreshold(float threshold) { m_threshold = threshold; }
+	float getThreshold() { return m_threshold; }
 
 	/**
 	 * Specify the threshold for depth edge detection.
@@ -159,7 +170,8 @@ public:
 	 * Range: depends on the depth range of the scene.
 	 */
 
-	void setDepthThreshold(float threshold) { m_depth_threshold = threshold; };
+	void setDepthThreshold(float threshold) { m_depth_threshold = threshold; }
+	float getDepthThreshold() { return m_depth_threshold; }
 
 	/**
 	 * Specify the maximum steps performed in the
@@ -171,7 +183,8 @@ public:
 	 *
 	 * Range: [0, 104]  (max < (14.5^2 - 2) / 2 = 104.25)
 	 */
-	void setMaxSearchSteps(int steps) { m_max_search_steps = steps; };
+	void setMaxSearchSteps(int steps) { m_max_search_steps = steps; }
+	int getMaxSearchSteps() { return m_max_search_steps; }
 	/**
 	 * Specify the maximum steps performed in the
 	 * diagonal pattern searches, at each side of the pixel. In this case we jump
@@ -184,7 +197,8 @@ public:
 	 *
 	 * setEnableDiagDetection() to disable diagonal processing.
 	 */
-	void setMaxSearchStepsDiag(int steps) { m_max_search_steps_diag = steps; };
+	void setMaxSearchStepsDiag(int steps) { m_max_search_steps_diag = steps; }
+	int getMaxSearchStepsDiag() { return m_max_search_steps_diag; }
 
 	/**
 	 * Specify how much sharp corners will be rounded.
@@ -193,7 +207,8 @@ public:
 	 *
 	 * Use setEnableCornerDetection() to disable corner processing.
 	 */
-	void setCornerRounding(int rounding) { m_corner_rounding = rounding; };
+	void setCornerRounding(int rounding) { m_corner_rounding = rounding; }
+	int getCornerRounding() { return m_corner_rounding; }
 
 	/**
 	 * Specify the local contrast adaptation factor.
@@ -205,7 +220,8 @@ public:
 	 * that, if there is too much contrast in a direction, that will hide
 	 * perceptually contrast in the other neighbors.
 	 */
-	void setLocalContrastAdaptationFactor(float factor) { m_local_contrast_adaptation_factor = factor; };
+	void setLocalContrastAdaptationFactor(float factor) { m_local_contrast_adaptation_factor = factor; }
+	float getLocalContrastAdaptationFactor() { return m_local_contrast_adaptation_factor; }
 
 	/**
 	 * Specify threshold to be used in the additional predication buffer.
@@ -213,7 +229,8 @@ public:
 	 * Range: depends on the input, so you'll have to find the magic number that
 	 * works for you.
 	 */
-	void setPredicationThreshold(float threshold) { m_predication_threshold = threshold; };
+	void setPredicationThreshold(float threshold) { m_predication_threshold = threshold; }
+	float getPredicationThreshold() { return m_predication_threshold; }
 
 	/**
 	 * Specify how much to scale the global threshold used for luma or color edge
@@ -221,14 +238,16 @@ public:
 	 *
 	 * Range: [1, 5]
 	 */
-	void setPredicationScale(float scale) { m_predication_scale = scale; };
+	void setPredicationScale(float scale) { m_predication_scale = scale; }
+	float getPredicationScale() { return m_predication_scale; }
 
 	/**
 	 * Specify how much to locally decrease the threshold.
 	 *
 	 * Range: [0, 1]
 	 */
-	void setPredicationStrength(float strength) { m_predication_strength = strength; };
+	void setPredicationStrength(float strength) { m_predication_strength = strength; }
+	float getPredicationStrength() { return m_predication_strength; }
 
 	/*-----------------------------------------------------------------------------*/
 	/* Edge Detection Pixel Shaders (First Pass) */
