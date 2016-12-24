@@ -79,50 +79,45 @@ Dbl2::operator Int2() { return Int2((int)x, (int)y); }
 /*------------------------------------------------------------------------------*/
 /* Data to Calculate Areatex */
 
-static const double subsample_offsets_ortho[] = {0.0,    /* 0 */
-						 -0.25,  /* 1 */
-						 0.25,   /* 2 */
-						 -0.125, /* 3 */
-						 0.125,  /* 4 */
-						 -0.375, /* 5 */
-						 0.375}; /* 6 */
-
-static const Dbl2 subsample_offsets_diag[] = {{ 0.00,   0.00},   /* 0 */
-					      { 0.25,  -0.25},   /* 1 */
-					      {-0.25,   0.25},   /* 2 */
-					      { 0.125, -0.125},  /* 3 */
-					      {-0.125,  0.125}}; /* 4 */
-
 /* Texture sizes: */
 /* (it's quite possible that this is not easily configurable) */
-#define SIZE_ORTHO 16 /* 16 * 5 slots = 80 */
-#define SIZE_DIAG  20 /* 20 * 4 slots = 80 */
+static const int SUBSAMPLES_ORTHO = 7;
+static const int SUBSAMPLES_DIAG  = 5;
+static const int MAX_DIST_ORTHO = 16;
+static const int MAX_DIST_DIAG  = 20;
+static const int TEX_SIZE_ORTHO = 80; /* 16 * 5 slots = 80 */
+static const int TEX_SIZE_DIAG  = 80; /* 20 * 4 slots = 80 */
 
 /* Number of samples for calculating areas in the diagonal textures: */
 /* (diagonal areas are calculated using brute force sampling) */
-#define SAMPLES_DIAG 30
+static const int SAMPLES_DIAG = 30;
 
 /* Maximum distance for smoothing u-shapes: */
-#define SMOOTH_MAX_DISTANCE 32
+static const int SMOOTH_MAX_DISTANCE = 32;
 
 /*------------------------------------------------------------------------------*/
-/* Miscellaneous Utility Functions */
+/* Offset Tables */
 
-/* Linear interpolation: */
-static Dbl2 lerp(Dbl2 a, Dbl2 b, double p)
-{
-	return a + (b - a) * Dbl2(p);
-}
+/* Offsets for subsample rendering */
+static const double subsample_offsets_ortho[SUBSAMPLES_ORTHO] = {
+	0.0,    /* 0 */
+	-0.25,  /* 1 */
+	0.25,   /* 2 */
+	-0.125, /* 3 */
+	0.125,  /* 4 */
+	-0.375, /* 5 */
+	0.375   /* 6 */
+};
 
-/* Saturates a value to [0..1] range: */
-static double saturate(double x)
-{
-	return 0.0 < x ? (x < 1.0 ? x : 1.0) : 0.0;
-}
+static const Dbl2 subsample_offsets_diag[SUBSAMPLES_DIAG] = {
+	{ 0.00,   0.00},  /* 0 */
+	{ 0.25,  -0.25},  /* 1 */
+	{-0.25,   0.25},  /* 2 */
+	{ 0.125, -0.125}, /* 3 */
+	{-0.125,  0.125}  /* 4 */
+};
 
-/*------------------------------------------------------------------------------*/
-/* Mapping Tables (for placing each pattern subtexture into its place) */
-
+/* Mapping offsets for placing each pattern subtexture into its place */
 enum edgesorthoIndices
 {
 	EDGESORTHO_NONE_NONE = 0,
@@ -143,8 +138,10 @@ enum edgesorthoIndices
 	EDGESORTHO_BOTH_BOTH = 15,
 };
 
-static const Int2 edgesortho[] = {{0, 0}, {0, 1}, {0, 3}, {0, 4}, {1, 0}, {1, 1}, {1, 3}, {1, 4},
-				  {3, 0}, {3, 1}, {3, 3}, {3, 4}, {4, 0}, {4, 1}, {4, 3}, {4, 4}};
+static const Int2 edgesortho[16] = {
+	{0, 0}, {0, 1}, {0, 3}, {0, 4}, {1, 0}, {1, 1}, {1, 3}, {1, 4},
+	{3, 0}, {3, 1}, {3, 3}, {3, 4}, {4, 0}, {4, 1}, {4, 3}, {4, 4}
+};
 
 enum edgesdiagIndices
 {
@@ -166,8 +163,25 @@ enum edgesdiagIndices
 	EDGESDIAG_BOTH_BOTH = 15,
 };
 
-static const Int2 edgesdiag[]  = {{0, 0}, {0, 1}, {0, 2}, {0, 3}, {1, 0}, {1, 1}, {1, 2}, {1, 3},
-				  {2, 0}, {2, 1}, {2, 2}, {2, 3}, {3, 0}, {3, 1}, {3, 2}, {3, 3}};
+static const Int2 edgesdiag[16] = {
+	{0, 0}, {0, 1}, {0, 2}, {0, 3}, {1, 0}, {1, 1}, {1, 2}, {1, 3},
+	{2, 0}, {2, 1}, {2, 2}, {2, 3}, {3, 0}, {3, 1}, {3, 2}, {3, 3}
+};
+
+/*------------------------------------------------------------------------------*/
+/* Miscellaneous Utility Functions */
+
+/* Linear interpolation: */
+static Dbl2 lerp(Dbl2 a, Dbl2 b, double p)
+{
+	return a + (b - a) * Dbl2(p);
+}
+
+/* Saturates a value to [0..1] range: */
+static double saturate(double x)
+{
+	return 0.0 < x ? (x < 1.0 ? x : 1.0) : 0.0;
+}
 
 /*------------------------------------------------------------------------------*/
 /* Horizontal/Vertical Areas */
@@ -758,17 +772,17 @@ static Dbl2 areadiag(int pattern, int left, int right, Dbl2 offset)
 /* Main Loops */
 
 /* Buffers to Store AreaTex Data Temporarily */
-static double ortho[7][5 * SIZE_ORTHO][5 * SIZE_ORTHO][2];
-static double diag[5][4 * SIZE_DIAG][4 * SIZE_DIAG][2];
+static double ortho[SUBSAMPLES_ORTHO][TEX_SIZE_ORTHO][TEX_SIZE_ORTHO][2];
+static double diag[SUBSAMPLES_DIAG][TEX_SIZE_DIAG][TEX_SIZE_DIAG][2];
 
 static void areatex_ortho(int offset_index)
 {
 	double offset = subsample_offsets_ortho[offset_index];
 
 	for (int pattern = 0; pattern < 16; pattern++) {
-		Int2 e = Int2(SIZE_ORTHO) * edgesortho[pattern];
-		for (int left = 0; left < SIZE_ORTHO; left++) {
-			for (int right = 0; right < SIZE_ORTHO; right++) {
+		Int2 e = Int2(MAX_DIST_ORTHO) * edgesortho[pattern];
+		for (int left = 0; left < MAX_DIST_ORTHO; left++) {
+			for (int right = 0; right < MAX_DIST_ORTHO; right++) {
 				Dbl2 p = areaortho(pattern, left * left, right * right, offset);
 				Int2 coords = e + Int2(left, right);
 
@@ -785,9 +799,9 @@ static void areatex_diag(int offset_index)
 	Dbl2 offset = subsample_offsets_diag[offset_index];
 
 	for (int pattern = 0; pattern < 16; pattern++) {
-		Int2 e = Int2(SIZE_DIAG) * edgesdiag[pattern];
-		for (int left = 0; left < SIZE_DIAG; left++) {
-			for (int right = 0; right < SIZE_DIAG; right++) {
+		Int2 e = Int2(MAX_DIST_DIAG) * edgesdiag[pattern];
+		for (int left = 0; left < MAX_DIST_DIAG; left++) {
+			for (int right = 0; right < MAX_DIST_DIAG; right++) {
 				Dbl2 p = areadiag(pattern, left, right, offset);
 				Int2 coords = e + Int2(left, right);
 
@@ -827,19 +841,19 @@ static void write_csource(FILE *fp, bool subsampling, bool quantize)
 
 	fprintf(fp, "\n/* Horizontal/Vertical Areas */\n");
 	write_double_array(fp, (double *)ortho,
-			   (5 * SIZE_ORTHO) * (5 * SIZE_ORTHO) * 2 * (subsampling ? 7 : 1),
+			   TEX_SIZE_ORTHO * TEX_SIZE_ORTHO * 2 * (subsampling ? SUBSAMPLES_ORTHO : 1),
 			   "areatex", quantize);
 
 	fprintf(fp, "\n/* Diagonal Areas */\n");
 	write_double_array(fp, (double *)diag,
-			   (4 * SIZE_DIAG) * (4 * SIZE_DIAG) * 2 * (subsampling ? 5 : 1),
+			   TEX_SIZE_DIAG * TEX_SIZE_DIAG * 2 * (subsampling ? SUBSAMPLES_DIAG : 1),
 			   "areatex_diag", quantize);
 }
 
 /* .tga File (RGBA 32bit uncompressed) */
 static void write_tga(FILE *fp, bool subsampling)
 {
-	int samples = subsampling ? 7 : 1;
+	int subsamples = subsampling ? SUBSAMPLES_ORTHO : 1;
 	unsigned char header[18] = {0, 0,
 				    2,   /* uncompressed RGB */
 				    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -847,26 +861,26 @@ static void write_tga(FILE *fp, bool subsampling)
 				    8};  /* 8bit alpha, left to right, bottom to top */
 
 	/* Set width and height */
-	header[12] = (5 * SIZE_ORTHO + 4 * SIZE_DIAG)      & 0xff;
-	header[13] = (5 * SIZE_ORTHO + 4 * SIZE_DIAG >> 8) & 0xff;
-	header[14] = (samples * 5 * SIZE_ORTHO)      & 0xff;
-	header[15] = (samples * 5 * SIZE_ORTHO >> 8) & 0xff;
+	header[12] = (TEX_SIZE_ORTHO + TEX_SIZE_DIAG)      & 0xff;
+	header[13] = (TEX_SIZE_ORTHO + TEX_SIZE_DIAG >> 8) & 0xff;
+	header[14] = (subsamples * TEX_SIZE_ORTHO)      & 0xff;
+	header[15] = (subsamples * TEX_SIZE_ORTHO >> 8) & 0xff;
 
 	/* Write .tga header */
 	fwrite(header, sizeof(unsigned char), sizeof(header) / sizeof(unsigned char), fp);
 
 	/* Write pixel data  */
-	for (int i = samples - 1; i >= 0; i--) {
-		for (int y = 5 * SIZE_ORTHO - 1; y >= 0; y--) {
-			for (int x = 0; x < 5 * SIZE_ORTHO; x++) {
+	for (int i = subsamples - 1; i >= 0; i--) {
+		for (int y = TEX_SIZE_ORTHO - 1; y >= 0; y--) {
+			for (int x = 0; x < TEX_SIZE_ORTHO; x++) {
 				fputc(0, fp);                                          /* B */
 				fputc((unsigned char)(ortho[i][y][x][1] * 255.0), fp); /* G */
 				fputc((unsigned char)(ortho[i][y][x][0] * 255.0), fp); /* R */
 				fputc(0, fp);                                          /* A */
 			}
 
-			for (int x = 0; x < 4 * SIZE_DIAG; x++) {
-				if (i < 5) {
+			for (int x = 0; x < TEX_SIZE_DIAG; x++) {
+				if (i < SUBSAMPLES_DIAG) {
 					fputc(0, fp);                                         /* B */
 					fputc((unsigned char)(diag[i][y][x][1] * 255.0), fp); /* G */
 					fputc((unsigned char)(diag[i][y][x][0] * 255.0), fp); /* R */
@@ -962,10 +976,10 @@ int main(int argc, char **argv)
 	}
 
 	/* Calculate areatex data */
-	for (int i = 0; i < (subsampling ? 7 : 1); i++)
+	for (int i = 0; i < (subsampling ? SUBSAMPLES_ORTHO : 1); i++)
 		areatex_ortho(i);
 
-	for (int i = 0; i < (subsampling ? 5 : 1); i++)
+	for (int i = 0; i < (subsampling ? SUBSAMPLES_DIAG : 1); i++)
 		areatex_diag(i);
 
 	/* Generate C++ source file or .tga file, or write the data to stdout */
