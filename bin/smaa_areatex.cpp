@@ -23,9 +23,13 @@
 /*
  * smaa_areatex.cpp  version 0.1.1
  *
- * This program is C++ rewrite of AreaTex.py included in SMAA ditribution.
+ * This is a part of smaa-cpp that is an implementation of
+ * Enhanced Subpixel Morphological Antialiasing (SMAA) written in C++.
  *
- *   SMAA in GitHub: https://github.com/iryoku/smaa
+ * This program is C++ rewrite of AreaTex.py included in the original
+ * SMAA ditribution:
+ *
+ *   https://github.com/iryoku/smaa/tree/master/Scripts
  */
 
 #include <cstdio>
