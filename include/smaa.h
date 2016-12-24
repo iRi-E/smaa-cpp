@@ -26,6 +26,7 @@
 #define SMAA_H
 
 #include "smaa_types.h"
+#include "smaa_version.h"
 
 namespace SMAA {
 

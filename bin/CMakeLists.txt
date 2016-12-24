@@ -22,8 +22,9 @@
 cmake_minimum_required(VERSION 3.0)
 
 set(INCDIR ${CMAKE_SOURCE_DIR}/include)
+set(GENDIR ${CMAKE_BINARY_DIR}/include)
 
-include_directories(${INCDIR})
+include_directories(${INCDIR} ${GENDIR})
 
 add_executable(smaa_areatex smaa_areatex.cpp)
 
@@ -34,8 +35,9 @@ endif()
 if(WITH_SMAA_SAMPLE)
 	set(SRC
 		smaa_png.cpp
-		${CMAKE_SOURCE_DIR}/include/smaa.h
-		${CMAKE_SOURCE_DIR}/include/smaa_types.h
+		${INCDIR}/smaa.h
+		${INCDIR}/smaa_types.h
+		${GENDIR}/smaa_version.h
 	)
 
 	add_executable(smaa_png  ${SRC})

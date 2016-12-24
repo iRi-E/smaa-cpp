@@ -484,6 +484,7 @@ int main(int argc, char **argv)
 	int chr;
 	char *endptr;
 
+	opterr = 0;
 	while ((chr = getopt(argc, argv, "p:e:t:a:s:d:c:vh")) != -1) {
 		switch(chr) {
 			case 'p':
@@ -541,11 +542,15 @@ int main(int argc, char **argv)
 			case 'h':
 				help = true;
 				break;
-			default:
+			case '?':
 				if (strchr("petasdc", optopt))
 					fprintf(stderr, "Option -%c requires an argument.\n", optopt);
 				else
 					fprintf(stderr, "Unknown option: -%c\n", optopt);
+				status = 1;
+				break;
+			default:
+				fprintf(stderr, "Invalid command line argument\n");
 				status = 1;
 				break;
 		}
@@ -568,7 +573,10 @@ int main(int argc, char **argv)
 	}
 
 	if (status != 0 || help) {
+		if (status != 0)
+			fprintf(stderr, "\n");
 		fprintf(stderr, "Usage: %s [OPTION]... INFILE OUTFILE\n", argv[0]);
+		fprintf(stderr, "Remove jaggies from PNG image and write antialiased PNG image.\n\n");
 		fprintf(stderr, "  -p PRESET     Specify base configuration preset\n");
 		fprintf(stderr, "                                                 [low|medium|high|ultra|extreme]\n");
 		fprintf(stderr, "  -e DETECTTYPE Specify edge detection type                   [luma|color|depth]\n");
@@ -584,6 +592,9 @@ int main(int argc, char **argv)
 		fprintf(stderr, "  -h            Print this help and exit\n");
 		return status;
 	}
+
+	if (verbose)
+		fprintf(stderr, "smaa_png version %s\n\n", SMAA::VERSION);
 
 	read_png_file(argv[argc - 2], verbose);
 	process_file(preset, detection, threshold, adaption, ortho_steps, diag_steps, rounding, verbose);
