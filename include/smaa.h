@@ -74,7 +74,7 @@ public:
 		m_enable_predication = false;
 		m_threshold = 0.1;
 		m_depth_threshold = 0.1;
-		m_max_search_steps = 16;
+		m_max_search_steps = 34;
 		m_max_search_steps_diag = 8;
 		m_corner_rounding = 25;
 		m_local_contrast_adaptation_factor = 2.0;
@@ -85,32 +85,32 @@ public:
 		switch (preset) {
 			case CONFIG_PRESET_LOW:
 				m_threshold = 0.15;
-				m_max_search_steps = 4;
+				m_max_search_steps = 10; /* 2 * 4 + 2 = 10 */
 				m_enable_diag_detection = false;
 				m_enable_corner_detection = false;
 				break;
 			case CONFIG_PRESET_MEDIUM:
 				m_threshold = 0.1;
-				m_max_search_steps = 8;
+				m_max_search_steps = 18; /* 2 * 8 + 2 = 18 */
 				m_enable_diag_detection = false;
 				m_enable_corner_detection = false;
 				break;
 			case CONFIG_PRESET_HIGH:
 				m_threshold = 0.1;
-				m_max_search_steps = 16;
+				m_max_search_steps = 34; /* 2 * 16 + 2 = 34 */
 				m_max_search_steps_diag = 8;
 				m_corner_rounding = 25;
 				break;
 			case CONFIG_PRESET_ULTRA:
 				m_threshold = 0.05;
-				m_max_search_steps = 32;
+				m_max_search_steps = 66; /* 2 * 32 + 2 = 66 */
 				m_max_search_steps_diag = 16;
 				m_corner_rounding = 25;
 				break;
 			case CONFIG_PRESET_EXTREME:
 				m_threshold = 0.05;
-				m_max_search_steps = 104;
-				m_max_search_steps_diag = 18;
+				m_max_search_steps = 211; /* < 14.5^2+1 = 211.25 (roundf(14.5) = 16 - 1) */
+				m_max_search_steps_diag = 18; /* < 18.5          (roundf(18.5) = 20 - 1) */
 				m_corner_rounding = 25;
 				break;
 		}
@@ -178,11 +178,11 @@ public:
 	 * Specify the maximum steps performed in the
 	 * horizontal/vertical pattern searches, at each side of the pixel.
 	 *
-	 * In number of pixels, it's actually the double. So the maximum line length
-	 * perfectly handled by, for example 16, is 64 (by perfectly, we meant that
-	 * longer lines won't look as good, but still antialiased).
+	 * The maximum line length perfectly handled by, for example 16, is 32
+	 * (by perfectly, we meant that longer lines won't look as good, but
+	 * still antialiased).
 	 *
-	 * Range: [0, 104]  (max < (14.5^2 - 2) / 2 = 104.25)
+	 * Range: [1, 211]
 	 */
 	inline void setMaxSearchSteps(int steps) { m_max_search_steps = steps; }
 	inline int getMaxSearchSteps() { return m_max_search_steps; }
@@ -191,10 +191,7 @@ public:
 	 * diagonal pattern searches, at each side of the pixel. In this case we jump
 	 * one pixel at time, instead of two.
 	 *
-	 * Range: [0, 18]  (max < 18.5)
-	 *
-	 * On high-end machines it is cheap (between a 0.8x and 0.9x slower for 16
-	 * steps), but it can have a significant impact on older machines.
+	 * Range: [1, 18]
 	 *
 	 * setEnableDiagDetection() to disable diagonal processing.
 	 */

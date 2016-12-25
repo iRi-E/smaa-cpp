@@ -345,19 +345,20 @@ int PixelShader::searchDiag1(ImageReader *edgesImage, int x, int y, int dir,
 
 	while (x != end) {
 		x += dir;
-		y -= dir; /* bottom-left or top-right */
+		y -= dir; /* Search in direction to bottom-left or top-right */
 		edgesImage->getPixel(x, y, edges);
 		if (edges[1] == 0.0) { /* north */
 			*found = true;
-			return x - dir;
+			break;
 		}
 		if (edges[0] == 0.0) { /* west */
 			*found = true;
-			break;
+			/* Ended with north edge if dy > 0 (i.e. dir < 0) */
+			return (dir < 0) ? x : x - dir;
 		}
 	}
 
-	return (dir < 0) ? x : x - dir; /* Ended with north edge if dir < 0 (i.e. dy > 0) */
+	return x - dir;
 }
 
 int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dir,
@@ -369,20 +370,21 @@ int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dir,
 
 	while (x != end) {
 		x += dir;
-		y += dir; /* top-left or bottom-right */
+		y += dir; /* Search in direction to top-left or bottom-right */
 		edgesImage->getPixel(x, y, edges);
 		if (edges[1] == 0.0) { /* north */
 			*found = true;
-			return x - dir;
+			break;
 		}
 		edgesImage->getPixel(x + 1, y, edges);
 		if (edges[0] == 0.0) { /* east */
 			*found = true;
-			break;
+			/* Ended with north edge if dy > 0 (i.e. dir > 0) */
+			return (dir > 0) ? x : x - dir;
 		}
 	}
 
-	return (dir > 0) ? x : x - dir; /* Ended with north edge if dir > 0 (i.e. dy > 0) */
+	return x - dir;
 }
 
 /**
@@ -455,6 +457,13 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 		 *  1: vertical   (e1: down, e2: up)
 		 *  2: horizontal (e1: left, e2: right)
 		 *  3: both
+		 *
+		 * Possible depending area:
+		 *  max distances are: d1=N, d2=N-1
+		 *  x range [x-N-1, x+(N-1)+1] = [x-N-1, x+N] ... (1)
+		 *  y range [y-(N-1)-1, y+N]   = [y-N,   y+N] ... (2)
+		 *
+		 * where N is max search distance
 		 */
 		if (found1) {
 			int co_x = x - d1, co_y = y + d1;
@@ -516,6 +525,13 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 		 *  1: vertical   (e1: up, e2: down)
 		 *  2: horizontal (e1: left, e2: right)
 		 *  3: both
+		 *
+		 * Possible depending area:
+		 *  max distances are: d1=N-1, d2=N
+		 *  x range [x-(N-1)-1, x+N+1] = [x-N, x+N+1] ... (3)
+		 *  y range [y-(N-1)-1, y+N]   = [y-N, y+N]   ... (4)
+		 *
+		 * where N is max search distance
 		 */
 		if (found1) {
 			int co_x = x - d1, co_y = y - d1;
@@ -541,6 +557,12 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 		weights[0] += w[1];
 		weights[1] += w[0];
 	}
+
+	/*
+	 * Final depending area considering all diagonal searches:
+	 *  x range: (1),(3) -> [x-N-1, x+N+1]
+	 *  y range: (2),(4) -> [y-N,   y+N]
+	 */
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -548,78 +570,80 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 
 int PixelShader::searchXLeft(ImageReader *edgesImage, int x, int y)
 {
-	int end = x - 2 * m_max_search_steps - 1;
+	int end = x - m_max_search_steps;
 	float edges[4];
 
-	while (x >= end) {
+	while (x > end) {
 		edgesImage->getPixel(x, y, edges);
-		if (edges[1] == 0.0 || /* Is the edge not activated? */
+		if (edges[1] == 0.0)   /* Is the north edge not activated? */
+			break; /* x + 1 */
+		if (edges[0] != 0.0)   /* Or is there a bottom crossing edge that breaks the line? */
+			return x;
+		edgesImage->getPixel(x, y - 1, edges);
+		if (edges[0] != 0.0)   /* Or is there a top crossing edge that breaks the line? */
+			return x;
+		x--;
+	}
+
+	return x + 1;
+}
+
+int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
+{
+	int end = x + m_max_search_steps;
+	float edges[4];
+
+	while (x < end) {
+		x++;
+		edgesImage->getPixel(x, y, edges);
+		if (edges[1] == 0.0 || /* Is the north edge not activated? */
 		    edges[0] != 0.0)   /* Or is there a bottom crossing edge that breaks the line? */
 			break;
 		edgesImage->getPixel(x, y - 1, edges);
 		if (edges[0] != 0.0)   /* Or is there a top crossing edge that breaks the line? */
 			break;
-		x--;
 	}
 
-	return x;
-}
-
-int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
-{
-	int end = x + 2 * m_max_search_steps + 1;
-	float edges[4];
-
-	while (x <= end) {
-		edgesImage->getPixel(x + 1, y, edges);
-		if (edges[1] == 0.0 || /* Is the edge not activated? */
-		    edges[0] != 0.0)   /* Or is there a bottom crossing edge that breaks the line? */
-			break;
-		edgesImage->getPixel(x + 1, y - 1, edges);
-		if (edges[0] != 0.0)   /* Or is there a top crossing edge that breaks the line? */
-			break;
-		x++;
-	}
-
-	return x;
+	return x - 1;
 }
 
 int PixelShader::searchYUp(ImageReader *edgesImage, int x, int y)
 {
-	int end = y - 2 * m_max_search_steps - 1;
+	int end = y - m_max_search_steps;
 	float edges[4];
 
-	while (y >= end) {
+	while (y > end) {
 		edgesImage->getPixel(x, y, edges);
-		if (edges[0] == 0.0 || /* Is the edge not activated? */
+		if (edges[0] == 0.0)   /* Is the west edge not activated? */
+			break; /* y + 1 */
+		if (edges[1] != 0.0)   /* Or is there a right crossing edge that breaks the line? */
+			return y;
+		edgesImage->getPixel(x - 1, y, edges);
+		if (edges[1] != 0.0)   /* Or is there a left crossing edge that breaks the line? */
+			return y;
+		y--;
+	}
+
+	return y + 1;
+}
+
+int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
+{
+	int end = y + m_max_search_steps;
+	float edges[4];
+
+	while (y < end) {
+		y++;
+		edgesImage->getPixel(x, y, edges);
+		if (edges[0] == 0.0 || /* Is the west edge not activated? */
 		    edges[1] != 0.0)   /* Or is there a right crossing edge that breaks the line? */
 			break;
 		edgesImage->getPixel(x - 1, y, edges);
 		if (edges[1] != 0.0)   /* Or is there a left crossing edge that breaks the line? */
 			break;
-		y--;
 	}
 
-	return y;
-}
-
-int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
-{
-	int end = y + 2 * m_max_search_steps + 1;
-	float edges[4];
-
-	while (y <= end) {
-		edgesImage->getPixel(x, y + 1, edges);
-		if (edges[0] == 0.0 || /* Is the edge not activated? */
-		    edges[1] != 0.0)   /* Or is there a right crossing edge that breaks the line? */
-			break;
-		edgesImage->getPixel(x - 1, y + 1, edges);
-		if (edges[1] != 0.0)   /* Or is there a left crossing edge that breaks the line? */
-			break;
-		y++;
-	}
-
-	return y;
+	return y - 1;
 }
 
 /**
@@ -734,12 +758,33 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		}
 
 		/* Find the distance to the left and the right: */
+		/*
+		 *   <- left  right ->
+		 *   2  1  0  0  1  2
+		 *   |  |  |  |  |  |
+		 * --2--1--0==0--1--2--
+		 *   |  |  |xy|  |  |
+		 *   2  1  0  0  1  2
+		 */
 		int left = searchXLeft(edgesImage, x, y);
 		int right = searchXRight(edgesImage, x, y);
 		int d1 = x - left, d2 = right - x;
 
 		/* Now fetch the left and right crossing edges: */
 		int e1 = 0, e2 = 0;
+		/* e1, e2
+		 *  0: none
+		 *  1: top
+		 *  3: bottom
+		 *  4: both
+		 *
+		 * Possible depending area:
+		 *  max distances are: d1=N-1, d2=N-1
+		 *  x range [x-(N-1), x+(N-1)+1] = [x-N+1, x+N] ... (1)
+		 *  y range [y-1, y] ... (2)
+		 *
+		 * where N is max search distance
+		 */
 		edgesImage->getPixel(left, y - 1, c);
 		if (c[0] > 0.0)
 			e1 += 1;
@@ -765,12 +810,38 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 	if (edges[0] > 0.0) { /* Edge at west */
 
 		/* Find the distance to the top and the bottom: */
+		/*      |
+		 *   2--2--2
+		 *      |
+		 *   1--1--1   A
+		 *      |      |
+		 *   0--0--0  top
+		 *     ||xy
+		 *   0--0--0 bottom
+		 *      |      |
+		 *   1--1--1   V
+		 *      |
+		 *   2--2--2
+		 *      |      */
 		int top = searchYUp(edgesImage, x, y);
 		int bottom = searchYDown(edgesImage, x, y);
 		int d1 = y - top, d2 = bottom - y;
 
 		/* Fetch the top ang bottom crossing edges: */
 		int e1 = 0, e2 = 0;
+		/* e1, e2
+		 *  0: none
+		 *  1: left
+		 *  3: right
+		 *  4: both
+		 *
+		 * Possible depending area:
+		 *  max distances are: d1=N-1, d2=N-1
+		 *  x range [x-1, x] ... (3)
+		 *  y range [y-(N-1), y+(N-1)+1] = [y-N+1, y+N] ... (4)
+		 *
+		 * where N is max search distance
+		 */
 		edgesImage->getPixel(x - 1, top, c);
 		if (c[1] > 0.0)
 			e1 += 1;
@@ -791,6 +862,11 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		if (m_enable_corner_detection)
 			detectVerticalCornerPattern(edgesImage, weights, top, bottom, x, d1, d2);
 	}
+	/*
+	 * Final depending area considering all orthogonal searches:
+	 *  x range: (1),(3) -> [min(x-N+1, x-1), x+N] = [x-max(N-1, 1), x+N]
+	 *  y range: (2),(4) -> [min(x-N+1, y-1), y+N] = [y-max(N-1, 1), y+N]
+	 */
 }
 
 /*-----------------------------------------------------------------------------*/
