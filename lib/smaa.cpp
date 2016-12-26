@@ -397,10 +397,6 @@ static void areaDiag(int d1, int d2, int e1, int e2, float offset,
 	float x = (float)(AREATEX_MAX_DISTANCE_DIAG * e1 + d1);
 	float y = (float)(AREATEX_MAX_DISTANCE_DIAG * e2 + d2);
 
-	/* We do a bias for mapping to texel space: */
-	x += 0.5;
-	y += 0.5;
-
 	/* Move to proper place, according to the subpixel offset: */
 	y += (float)AREATEX_SIZE * offset;
 
@@ -701,10 +697,6 @@ static void area(int d1, int d2, int e1, int e2, float offset,
 	/* The areas texture is compressed quadratically: */
 	float x = (float)(AREATEX_MAX_DISTANCE * e1) + sqrtf((float)d1);
 	float y = (float)(AREATEX_MAX_DISTANCE * e2) + sqrtf((float)d2);
-
-	/* We do a bias for mapping to texel space: */
-	x += 0.5;
-	y += 0.5;
 
 	/* Move to proper place, according to the subpixel offset: */
 	y += (float)AREATEX_SIZE * offset;
