@@ -309,6 +309,7 @@ private:
 	int searchDiag2(ImageReader *edgesImage, int x, int y, int dir, bool *found);
 	void calculateDiagWeights(ImageReader *edgesImage, int x, int y, const float edges[2],
 				  const float subsampleIndices[4], float weights[2]);
+	bool isVerticalSearchUnneeded(ImageReader *edgesImage, int x, int y);
 	int searchXLeft(ImageReader *edgesImage, int x, int y);
 	int searchXRight(ImageReader *edgesImage, int x, int y);
 	int searchYUp(ImageReader *edgesImage, int x, int y);

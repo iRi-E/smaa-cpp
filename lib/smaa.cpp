@@ -557,13 +557,58 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 		weights[0] += w[1];
 		weights[1] += w[0];
 	}
-
-	/*
-	 * Final depending area considering all diagonal searches:
-	 *  x range: (1),(3) -> [x-N-1, x+N+1]
-	 *  y range: (2),(4) -> [y-N,   y+N]
-	 */
 }
+
+bool PixelShader::isVerticalSearchUnneeded(ImageReader *edgesImage, int x, int y)
+{
+	int d1, d2;
+	bool found;
+	float e[4];
+
+	/* Search for the line ends: */
+	/*
+	 *   |
+	 *   3--2
+	 *      |
+	 *      2--1
+	 *   d1    |
+	 *         1--0
+	 *            |
+	 *            0==0   Start from both ends of (x-1, y)'s north edge
+	 *               |xy
+	 *               0--1
+	 *                  |    d2
+	 *                  1--2
+	 *                     |
+	 *                     2--3
+	 *                        |
+	 *
+	 * We've already done diagonal search and weight calculation in this direction,
+	 * so want to know only whether there is diagonal edge in order to avoid
+	 * performing unneeded vertical search and weight calculations.
+	 */
+	edgesImage->getPixel(x - 1, y, e);
+	if (e[1] > 0.0) /* north of (x-1, y) */
+		d1 = x - searchDiag2(edgesImage, x - 1, y, -1, &found);
+	else
+		d1 = 0;
+	d2 = searchDiag2(edgesImage, x - 1, y, 1, &found) - x;
+	/*
+	 * Possible depending area:
+	 *  x range [(x-1)-(N-1), (x-1)+(N-1)+1] = [x-N,   x+N-1] ... (5)
+	 *  y range [y-(N-1), y+(N-1)]           = [y-N+1, y+N-1] ... (6)
+	 *
+	 * where N is max search distance
+	 */
+
+	return (d1 + d2 > 2); /* d1 + d2 + 1 > 3 */
+}
+
+/*
+ * Final depending area considering all diagonal searches:
+ *  x range: (1)(3)(5) -> [x-N-1, x+N+1]
+ *  y range: (2)(4)(6) -> [y-N,   y+N]
+ */
 
 /*-----------------------------------------------------------------------------*/
 /* Horizontal/Vertical Search Functions */
@@ -747,8 +792,8 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 
 	if (edges[1] > 0.0) { /* Edge at north */
 		if (m_enable_diag_detection) {
-			/* Diagonals have both north and west edges, so searching for them in */
-			/* one of the boundaries is enough. */
+			/* Diagonals have both north and west edges, so calculating weights for them */
+			/* in one of the boundaries is enough. */
 			calculateDiagWeights(edgesImage, x, y, edges, subsampleIndices, weights);
 
 			/* We give priority to diagonals, so if we find a diagonal we skip  */
@@ -808,6 +853,9 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 	}
 
 	if (edges[0] > 0.0) { /* Edge at west */
+		/* Did we already do diagonal search for this west edge from the left neighboring pixel? */
+		if (m_enable_diag_detection && isVerticalSearchUnneeded(edgesImage, x, y))
+			return;
 
 		/* Find the distance to the top and the bottom: */
 		/*      |
