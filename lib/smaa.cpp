@@ -24,6 +24,7 @@
 
 #include <cstdlib>
 #include <cmath>
+#include <algorithm>
 #include "smaa.h"
 #include "smaa_areatex.h"
 
@@ -275,6 +276,14 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	}
 }
 
+void PixelShader::getAreaLumaEdgeDetection(int *xmin, int *xmax, int *ymin, int *ymax)
+{
+	*xmin -= 2;
+	*xmax += 1;
+	*ymin -= 2;
+	*ymax += 1;
+}
+
 /**
  * Color Edge Detection
  *
@@ -353,6 +362,14 @@ void PixelShader::colorEdgeDetection(int x, int y,
 	}
 }
 
+void PixelShader::getAreaColorEdgeDetection(int *xmin, int *xmax, int *ymin, int *ymax)
+{
+	*xmin -= 2;
+	*xmax += 1;
+	*ymin -= 2;
+	*ymax += 1;
+}
+
 /**
  * Depth Edge Detection
  */
@@ -370,6 +387,12 @@ void PixelShader::depthEdgeDetection(int x, int y,
 	edges[1] = step(m_depth_threshold, fabsf(here[0] - top[0]));
 	edges[2] = 0.0;
 	edges[3] = 1.0;
+}
+
+void PixelShader::getAreaDepthEdgeDetection(int *xmin, int *xmax, int *ymin, int *ymax)
+{
+	*xmin -= 1;
+	*ymin -= 1;
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -636,7 +659,7 @@ bool PixelShader::isVerticalSearchUnneeded(ImageReader *edgesImage, int x, int y
 
 /*
  * Final depending area considering all diagonal searches:
- *  x range: (1)(3)(5) -> [x-N-1, x+N+1]
+ *  x range: (1)(3)(5) -> [x-N-1, x+N+1] = [x-(N+1), x+(N+1)]
  *  y range: (2)(4)(6) -> [y-N,   y+N]
  */
 
@@ -925,6 +948,20 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 	 */
 }
 
+void PixelShader::getAreaBlendingWeightCalculation(int *xmin, int *xmax, int *ymin, int *ymax)
+{
+	using std::max;
+
+	*xmin -= max(max(m_max_search_steps - 1, 1),
+		     m_enable_diag_detection ? m_max_search_steps_diag + 1 : 0);
+	*xmax += max(m_max_search_steps,
+		     m_enable_diag_detection ? m_max_search_steps_diag + 1 : 0);
+	*ymin -= max(max(m_max_search_steps - 1, 1),
+		     m_enable_diag_detection ? m_max_search_steps_diag : 0);
+	*ymax += max(m_max_search_steps,
+		     m_enable_diag_detection ? m_max_search_steps_diag : 0);
+}
+
 /*-----------------------------------------------------------------------------*/
 /* Neighborhood Blending Pixel Shader (Third Pass) */
 
@@ -977,6 +1014,14 @@ void PixelShader::neighborhoodBlending(int x, int y,
 	color[1] = weight1 * color1[1] + weight2 * color2[1];
 	color[2] = weight1 * color1[2] + weight2 * color2[2];
 	color[3] = weight1 * color1[3] + weight2 * color2[3];
+}
+
+void PixelShader::getAreaNeighborhoodBlending(int *xmin, int *xmax, int *ymin, int *ymax)
+{
+	*xmin -= 1;
+	*xmax += 1;
+	*ymin -= 1;
+	*ymax += 1;
 }
 
 /*-----------------------------------------------------------------------------*/

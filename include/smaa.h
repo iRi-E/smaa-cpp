@@ -262,6 +262,18 @@ public:
 			       /* out */ float edges[4]);
 
 	/**
+	 * Determine possible depending area needed for rendering results of the
+	 * luma edge detection in specified rectangle, and modify the minimum and
+	 * maximum coordinates given by pointers.
+	 *
+	 * *xmin -= 2;
+	 * *xmax += 1;
+	 * *ymin -= 2;
+	 * *ymax += 1;
+	 */
+	void getAreaLumaEdgeDetection(int *xmin, int *xmax, int *ymin, int *ymax);
+
+	/**
 	 * Color Edge Detection
 	 *
 	 * IMPORTANT NOTICE: color edge detection requires gamma-corrected colors, and
@@ -273,11 +285,33 @@ public:
 				/* out */ float edges[4]);
 
 	/**
+	 * Determine possible depending area needed for rendering results of the
+	 * color edge detection in specified rectangle, and modify the minimum and
+	 * maximum coordinates given by pointers.
+	 *
+	 * *xmin -= 2;
+	 * *xmax += 1;
+	 * *ymin -= 2;
+	 * *ymax += 1;
+	 */
+	void getAreaColorEdgeDetection(int *xmin, int *xmax, int *ymin, int *ymax);
+
+	/**
 	 * Depth Edge Detection
 	 */
 	void depthEdgeDetection(int x, int y,
 				ImageReader *depthImage,
 				/* out */ float edges[4]);
+
+	/**
+	 * Determine possible depending area needed for rendering results of the
+	 * depth edge detection in specified rectangle, and modify the minimum and
+	 * maximum coordinates given by pointers.
+	 *
+	 * *xmin -= 1;
+	 * *ymin -= 1;
+	 */
+	void getAreaDepthEdgeDetection(int *xmin, int *xmax, int *ymin, int *ymax);
 
 	/*-----------------------------------------------------------------------------*/
 	/* Blending Weight Calculation Pixel Shader (Second Pass) */
@@ -291,6 +325,22 @@ public:
 				       const int subsampleIndices[4],
 				       /* out */ float weights[4]);
 
+	/**
+	 * Determine possible depending area needed for rendering results of the
+	 * blending weight calculation in specified rectangle, and modify the minimum
+	 * and maximum coordinates given by pointers.
+	 *
+	 * *xmin -= max(max(m_max_search_steps - 1, 1),
+	 *              m_enable_diag_detection ? m_max_search_steps_diag + 1 : 0);
+	 * *xmax += max(m_max_search_steps,
+	 *              m_enable_diag_detection ? m_max_search_steps_diag + 1 : 0);
+	 * *ymin -= max(max(m_max_search_steps - 1, 1),
+	 *              m_enable_diag_detection ? m_max_search_steps_diag : 0);
+	 * *ymax += max(m_max_search_steps,
+	 *              m_enable_diag_detection ? m_max_search_steps_diag : 0);
+	 */
+	void getAreaBlendingWeightCalculation(int *xmin, int *xmax, int *ymin, int *ymax);
+
 	/*-----------------------------------------------------------------------------*/
 	/* Neighborhood Blending Pixel Shader (Third Pass) */
 
@@ -301,6 +351,18 @@ public:
 				  ImageReader *colorImage,
 				  ImageReader *blendImage,
 				  /* out */ float color[4]);
+
+	/**
+	 * Determine possible depending area needed for rendering results of the
+	 * neighborhood blending in specified rectangle, and modify the minimum and
+	 * maximum coordinates given by pointers.
+	 *
+	 * *xmin -= 1;
+	 * *xmax += 1;
+	 * *ymin -= 1;
+	 * *ymax += 1;
+	 */
+	void getAreaNeighborhoodBlending(int *xmin, int *xmax, int *ymin, int *ymax);
 
 private:
 	/* Internal */
