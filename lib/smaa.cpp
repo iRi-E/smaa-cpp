@@ -70,26 +70,10 @@ static inline float color_delta(const float color1[4], const float color2[4])
 	return fmaxf(fmaxf(fabsf(color1[0] - color2[0]), fabsf(color1[1] - color2[1])), fabsf(color1[2] - color2[2]));
 }
 
-static void sample(ImageReader *image, float x, float y, float output[4])
-{
-	float ix = floorf(x), iy = floorf(y);
-	float fx = x - ix, fy = y - iy;
-	int X = (int)ix, Y = (int)iy;
+/*-----------------------------------------------------------------------------*/
+/* Internal Functions to Sample Pixel Color from Image with Bilinear Filtering */
 
-	float color00[4], color10[4], color01[4], color11[4];
-
-	image->getPixel(X + 0, Y + 0, color00);
-	image->getPixel(X + 1, Y + 0, color10);
-	image->getPixel(X + 0, Y + 1, color01);
-	image->getPixel(X + 1, Y + 1, color11);
-
-	output[0] = bilinear(color00[0], color10[0], color01[0], color11[0], fx, fy);
-	output[1] = bilinear(color00[1], color10[1], color01[1], color11[1], fx, fy);
-	output[2] = bilinear(color00[2], color10[2], color01[2], color11[2], fx, fy);
-	output[3] = bilinear(color00[3], color10[3], color01[3], color11[3], fx, fy);
-}
-
-static void sampleOffsetVertical(ImageReader *image, int x, int y, float yoffset, float output[4])
+static void sample_bilinear_vertical(ImageReader *image, int x, int y, float yoffset, float output[4])
 {
 	float iy = floorf(yoffset);
 	float fy = yoffset - iy;
@@ -106,7 +90,7 @@ static void sampleOffsetVertical(ImageReader *image, int x, int y, float yoffset
 	output[3] = lerp(color00[3], color01[3], fy);
 }
 
-static void sampleOffsetHorizontal(ImageReader *image, int x, int y, float xoffset, float output[4])
+static void sample_bilinear_horizontal(ImageReader *image, int x, int y, float xoffset, float output[4])
 {
 	float ix = floorf(xoffset);
 	float fx = xoffset - ix;
@@ -123,6 +107,9 @@ static void sampleOffsetHorizontal(ImageReader *image, int x, int y, float xoffs
 	output[3] = lerp(color00[3], color10[3], fx);
 }
 
+/*-----------------------------------------------------------------------------*/
+/* Internal Functions to Sample Blending Weights from AreaTex */
+
 static inline int clamp_areatex_coord(int x)
 {
 	return 0 < x ? (x < AREATEX_SIZE ? x : AREATEX_SIZE - 1) : 0;
@@ -133,8 +120,21 @@ static inline const float* areatex_sample_internal(const float *areatex, int x, 
 	return &areatex[(clamp_areatex_coord(x) + clamp_areatex_coord(y) * AREATEX_SIZE) * 2];
 }
 
-static void areaTexSampleLevelZero(const float *areatex, float x, float y, float weights[2])
+/**
+ * We have the distance and both crossing edges. So, what are the areas
+ * at each side of current edge?
+ */
+static void area(int d1, int d2, int e1, int e2, int offset,
+		 /* out */ float weights[2])
 {
+	/* The areas texture is compressed quadratically: */
+	float x = (float)(AREATEX_MAX_DISTANCE * e1) + sqrtf((float)d1);
+	float y = (float)(AREATEX_MAX_DISTANCE * e2) + sqrtf((float)d2);
+
+	/* Move to proper place, according to the subpixel offset: */
+	y += (float)(AREATEX_SIZE * offset);
+
+	/* Do it! */
 	float ix = floorf(x), iy = floorf(y);
 	float fx = x - ix, fy = y - iy;
 	int X = (int)ix, Y = (int)iy;
@@ -147,6 +147,28 @@ static void areaTexSampleLevelZero(const float *areatex, float x, float y, float
 	weights[0] = bilinear(weights00[0], weights10[0], weights01[0], weights11[0], fx, fy);
 	weights[1] = bilinear(weights00[1], weights10[1], weights01[1], weights11[1], fx, fy);
 }
+
+/**
+ * Similar to area(), this calculates the area corresponding to a certain
+ * diagonal distance and crossing edges 'e'.
+ */
+static void area_diag(int d1, int d2, int e1, int e2, int offset,
+		     /* out */ float weights[2])
+{
+	int x = AREATEX_MAX_DISTANCE_DIAG * e1 + d1;
+	int y = AREATEX_MAX_DISTANCE_DIAG * e2 + d2;
+
+	/* Move to proper place, according to the subpixel offset: */
+	y += AREATEX_SIZE * offset;
+
+	/* Do it! */
+	const float *w = areatex_sample_internal(areatex_diag, x, y);
+	weights[0] = w[0];
+	weights[1] = w[1];
+}
+
+/*-----------------------------------------------------------------------------*/
+/* Predicated Thresholding Used for Edge Detection */
 
 /**
  * Adjusts the threshold by means of predication.
@@ -388,27 +410,10 @@ int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dir,
 }
 
 /**
- * Similar to area(), this calculates the area corresponding to a certain
- * diagonal distance and crossing edges 'e'.
- */
-static void areaDiag(int d1, int d2, int e1, int e2, float offset,
-		     /* out */ float weights[2])
-{
-	float x = (float)(AREATEX_MAX_DISTANCE_DIAG * e1 + d1);
-	float y = (float)(AREATEX_MAX_DISTANCE_DIAG * e2 + d2);
-
-	/* Move to proper place, according to the subpixel offset: */
-	y += (float)AREATEX_SIZE * offset;
-
-	/* Do it! */
-	areaTexSampleLevelZero(areatex_diag, x, y, weights);
-}
-
-/**
  * This searches for diagonal patterns and returns the corresponding weights.
  */
 void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, const float edges[2],
-				       const float subsampleIndices[4],
+				       const int subsampleIndices[4],
 				       /* out */ float weights[2])
 {
 	int d1, d2;
@@ -481,7 +486,7 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 		}
 
 		/* Fetch the areas for this line: */
-		areaDiag(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[2] : 0.0), weights);
+		area_diag(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[2] : 0), weights);
 	}
 
 	/* Search for the line ends: */
@@ -549,7 +554,7 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 
 		/* Fetch the areas for this line: */
 		float w[2];
-		areaDiag(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[3] : 0.0), w);
+		area_diag(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[3] : 0), w);
 		weights[0] += w[1];
 		weights[1] += w[0];
 	}
@@ -687,24 +692,6 @@ int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
 	return y - 1;
 }
 
-/**
- * Ok, we have the distance and both crossing edges. So, what are the areas
- * at each side of current edge?
- */
-static void area(int d1, int d2, int e1, int e2, float offset,
-		 /* out */ float weights[2])
-{
-	/* The areas texture is compressed quadratically: */
-	float x = (float)(AREATEX_MAX_DISTANCE * e1) + sqrtf((float)d1);
-	float y = (float)(AREATEX_MAX_DISTANCE * e2) + sqrtf((float)d2);
-
-	/* Move to proper place, according to the subpixel offset: */
-	y += (float)AREATEX_SIZE * offset;
-
-	/* Do it! */
-	areaTexSampleLevelZero(areatex, x, y, weights);
-}
-
 /*-----------------------------------------------------------------------------*/
 /*  Corner Detection Functions */
 
@@ -774,7 +761,7 @@ void PixelShader::detectVerticalCornerPattern(ImageReader *edgesImage,
 
 void PixelShader::blendingWeightCalculation(int x, int y,
 					    ImageReader *edgesImage,
-					    const float subsampleIndices[4],
+					    const int subsampleIndices[4],
 					    /* out */ float weights[4])
 {
 	float edges[4], c[4];
@@ -837,7 +824,7 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 
 		/* Ok, we know how this pattern looks like, now it is time for getting */
 		/* the actual area: */
-		area(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[1] : 0.0), weights);
+		area(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[1] : 0), weights);
 
 		/* Fix corners: */
 		if (m_enable_corner_detection)
@@ -896,7 +883,7 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 			e2 += 3;
 
 		/* Get the area for this direction: */
-		area(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[0] : 0.0), weights + 2);
+		area(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[0] : 0), weights + 2);
 
 		/* Fix corners: */
 		if (m_enable_corner_detection)
@@ -938,14 +925,14 @@ void PixelShader::neighborhoodBlending(int x, int y,
 	float offset1, offset2, weight1, weight2;
 
 	if (fmaxf(right, left) > fmaxf(bottom, top)) { /* max(horizontal) > max(vertical) */
-		samplefunc = sampleOffsetHorizontal;
+		samplefunc = sample_bilinear_horizontal;
 		offset1 = right;
 		offset2 = -left;
 		weight1 = right / (right + left);
 		weight2 = left / (right + left);
 	}
 	else {
-		samplefunc = sampleOffsetVertical;
+		samplefunc = sample_bilinear_vertical;
 		offset1 = bottom;
 		offset2 = -top;
 		weight1 = bottom / (bottom + top);

@@ -288,7 +288,7 @@ public:
 	 */
 	void blendingWeightCalculation(int x, int y,
 				       ImageReader *edgesImage,
-				       const float subsampleIndices[4],
+				       const int subsampleIndices[4],
 				       /* out */ float weights[4]);
 
 	/*-----------------------------------------------------------------------------*/
@@ -308,7 +308,7 @@ private:
 	int searchDiag1(ImageReader *edgesImage, int x, int y, int dir, bool *found);
 	int searchDiag2(ImageReader *edgesImage, int x, int y, int dir, bool *found);
 	void calculateDiagWeights(ImageReader *edgesImage, int x, int y, const float edges[2],
-				  const float subsampleIndices[4], float weights[2]);
+				  const int subsampleIndices[4], float weights[2]);
 	bool isVerticalSearchUnneeded(ImageReader *edgesImage, int x, int y);
 	int searchXLeft(ImageReader *edgesImage, int x, int y);
 	int searchXRight(ImageReader *edgesImage, int x, int y);
