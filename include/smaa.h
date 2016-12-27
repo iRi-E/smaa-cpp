@@ -109,8 +109,8 @@ public:
 				break;
 			case CONFIG_PRESET_EXTREME:
 				m_threshold = 0.05;
-				m_max_search_steps = 211; /* < 14.5^2+1 = 211.25 (roundf(14.5) = 16 - 1) */
-				m_max_search_steps_diag = 18; /* < 18.5          (roundf(18.5) = 20 - 1) */
+				m_max_search_steps = 362; /* 362 - 1 = 19^2 */
+				m_max_search_steps_diag = 19;
 				m_corner_rounding = 25;
 				break;
 		}
@@ -182,7 +182,7 @@ public:
 	 * (by perfectly, we meant that longer lines won't look as good, but
 	 * still antialiased).
 	 *
-	 * Range: [1, 211]
+	 * Range: [1, 362]
 	 */
 	inline void setMaxSearchSteps(int steps) { m_max_search_steps = steps; }
 	inline int getMaxSearchSteps() { return m_max_search_steps; }
@@ -191,7 +191,7 @@ public:
 	 * diagonal pattern searches, at each side of the pixel. In this case we jump
 	 * one pixel at time, instead of two.
 	 *
-	 * Range: [1, 18]
+	 * Range: [1, 19]
 	 *
 	 * setEnableDiagDetection() to disable diagonal processing.
 	 */

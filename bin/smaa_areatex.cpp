@@ -87,7 +87,8 @@ Dbl2::operator Int2() { return Int2((int)x, (int)y); }
 /* (it's quite possible that this is not easily configurable) */
 static const int SUBSAMPLES_ORTHO = 7;
 static const int SUBSAMPLES_DIAG  = 5;
-static const int MAX_DIST_ORTHO = 16;
+static const int MAX_DIST_ORTHO_COMPAT = 16;
+static const int MAX_DIST_ORTHO = 20;
 static const int MAX_DIST_DIAG  = 20;
 static const int TEX_SIZE_ORTHO = 80; /* 16 * 5 slots = 80 */
 static const int TEX_SIZE_DIAG  = 80; /* 20 * 4 slots = 80 */
@@ -142,9 +143,14 @@ enum edgesorthoIndices
 	EDGESORTHO_BOTH_BOTH = 15,
 };
 
-static const Int2 edgesortho[16] = {
+static const Int2 edgesortho_compat[16] = {
 	{0, 0}, {0, 1}, {0, 3}, {0, 4}, {1, 0}, {1, 1}, {1, 3}, {1, 4},
 	{3, 0}, {3, 1}, {3, 3}, {3, 4}, {4, 0}, {4, 1}, {4, 3}, {4, 4}
+};
+
+static const Int2 edgesortho[16] = {
+	{0, 0}, {0, 1}, {0, 2}, {0, 3}, {1, 0}, {1, 1}, {1, 2}, {1, 3},
+	{2, 0}, {2, 1}, {2, 2}, {2, 3}, {3, 0}, {3, 1}, {3, 2}, {3, 3}
 };
 
 enum edgesdiagIndices
@@ -192,8 +198,9 @@ static double saturate(double x)
 
 class AreaOrtho {
 	double m_data[SUBSAMPLES_ORTHO][TEX_SIZE_ORTHO][TEX_SIZE_ORTHO][2];
+	bool m_compat;
 public:
-	AreaOrtho() {}
+	AreaOrtho(bool compat) : m_compat(compat) {}
 
 	double *getData() { return (double *)&m_data; }
 	Dbl2 getPixel(int offset_index, Int2 coords) {
@@ -484,9 +491,9 @@ Dbl2 AreaOrtho::calculate(int pattern, int left, int right, double offset)
 
 class AreaDiag {
 	double m_data[SUBSAMPLES_DIAG][TEX_SIZE_DIAG][TEX_SIZE_DIAG][2];
-	bool m_compat;
+	bool m_numeric;
 public:
-	AreaDiag(bool compat) : m_compat(compat) {}
+	AreaDiag(bool numeric) : m_numeric(numeric) {}
 
 	double *getData() { return (double *)&m_data; }
 	Dbl2 getPixel(int offset_index, Int2 coords) {
@@ -547,7 +554,7 @@ Dbl2 AreaDiag::area(int pattern, Dbl2 p1, Dbl2 p2, int left, Dbl2 offset)
 	if (e.y > 0)
 		p2 += offset;
 
-	if (m_compat) {
+	if (m_numeric) {
 		double a1 = area1(p1, p2, Int2(1, 0) + Int2(left));
 		double a2 = area1(p1, p2, Int2(1, 1) + Int2(left));
 		return Dbl2(1.0 - a1, a2);
@@ -886,11 +893,12 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 void AreaOrtho::areatex(int offset_index)
 {
 	double offset = subsample_offsets_ortho[offset_index];
+	int max_dist = m_compat ? MAX_DIST_ORTHO_COMPAT : MAX_DIST_ORTHO;
 
 	for (int pattern = 0; pattern < 16; pattern++) {
-		Int2 e = Int2(MAX_DIST_ORTHO) * edgesortho[pattern];
-		for (int left = 0; left < MAX_DIST_ORTHO; left++) {
-			for (int right = 0; right < MAX_DIST_ORTHO; right++) {
+		Int2 e = Int2(max_dist) * (m_compat ? edgesortho_compat : edgesortho)[pattern];
+		for (int left = 0; left < max_dist; left++) {
+			for (int right = 0; right < max_dist; right++) {
 				Dbl2 p = calculate(pattern, left * left, right * right, offset);
 				Int2 coords = e + Int2(left, right);
 
@@ -1032,6 +1040,7 @@ int main(int argc, char **argv)
 	bool quantize = false;
 	bool tga = false;
 	bool compat = false;
+	bool numeric = false;
 	bool help = false;
 	char *outfile = NULL;
 	int status = 0;
@@ -1049,6 +1058,8 @@ int main(int argc, char **argv)
 					tga = true;
 				else if (c == 'c')
 					compat = true;
+				else if (c == 'n')
+					numeric = true;
 				else if (c == 'h')
 					help = true;
 				else {
@@ -1080,15 +1091,20 @@ int main(int argc, char **argv)
 		fprintf(stderr, "    -s    Calculate data for subpixel rendering\n");
 		fprintf(stderr, "    -q    Quantize data to 256 levels\n");
 		fprintf(stderr, "    -t    Write TGA image instead of C/C++ source\n");
-		fprintf(stderr, "    -c    Compatible mode using same calculation as the original implementation\n");
+		fprintf(stderr, "    -c    Generate compatible orthogonal data that subtexture size is 16\n");
+		fprintf(stderr, "    -n    Numerically calculate diagonal data using brute force sampling\n");
 		fprintf(stderr, "    -h    Print this help and exit\n");
 		fprintf(stderr, "File name OUTFILE usually should have an extension such as .c, .h, or .tga,\n");
-		fprintf(stderr, "except for a special name '-' that means standard output.\n");
+		fprintf(stderr, "except for a special name '-' that means standard output.\n\n");
+		fprintf(stderr, "Example:\n");
+		fprintf(stderr, "  Generate TGA file exactly same as AreaTexDX10.tga bundled with the\n");
+		fprintf(stderr, "  original implementation:\n\n");
+		fprintf(stderr, "  $ smaa_areatex -stcn AreaTexDX10.tga\n\n");
 		return status;
 	}
 
-	AreaOrtho *ortho = new AreaOrtho;
-	AreaDiag *diag = new AreaDiag(compat);
+	AreaOrtho *ortho = new AreaOrtho(compat);
+	AreaDiag *diag = new AreaDiag(numeric);
 
 	/* Calculate areatex data */
 	for (int i = 0; i < (subsampling ? SUBSAMPLES_ORTHO : 1); i++)

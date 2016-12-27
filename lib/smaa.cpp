@@ -32,8 +32,8 @@ namespace SMAA {
 /*-----------------------------------------------------------------------------*/
 /* Non-Configurable Defines */
 
-static const int AREATEX_SIZE = 80; /* 16 * 5 = 20 * 4 = 80 */
-static const int AREATEX_MAX_DISTANCE = 16;
+static const int AREATEX_SIZE = 80; /* 20 * 4 = 80 */
+static const int AREATEX_MAX_DISTANCE = 20;
 static const int AREATEX_MAX_DISTANCE_DIAG = 20;
 static const float RGB_WEIGHTS[3] = {0.2126, 0.7152, 0.0722};
 
@@ -828,8 +828,8 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		/* e1, e2
 		 *  0: none
 		 *  1: top
-		 *  3: bottom
-		 *  4: both
+		 *  2: bottom
+		 *  3: both
 		 *
 		 * Possible depending area:
 		 *  max distances are: d1=N-1, d2=N-1
@@ -843,13 +843,13 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 			e1 += 1;
 		edgesImage->getPixel(left, y, c);
 		if (c[0] > 0.0)
-			e1 += 3;
+			e1 += 2;
 		edgesImage->getPixel(right + 1, y - 1, c);
 		if (c[0] > 0.0)
 			e2 += 1;
 		edgesImage->getPixel(right + 1, y, c);
 		if (c[0] > 0.0)
-			e2 += 3;
+			e2 += 2;
 
 		/* Ok, we know how this pattern looks like, now it is time for getting */
 		/* the actual area: */
@@ -888,8 +888,8 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		/* e1, e2
 		 *  0: none
 		 *  1: left
-		 *  3: right
-		 *  4: both
+		 *  2: right
+		 *  3: both
 		 *
 		 * Possible depending area:
 		 *  max distances are: d1=N-1, d2=N-1
@@ -903,13 +903,13 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 			e1 += 1;
 		edgesImage->getPixel(x, top, c);
 		if (c[1] > 0.0)
-			e1 += 3;
+			e1 += 2;
 		edgesImage->getPixel(x - 1, bottom + 1, c);
 		if (c[1] > 0.0)
 			e2 += 1;
 		edgesImage->getPixel(x, bottom + 1, c);
 		if (c[1] > 0.0)
-			e2 += 3;
+			e2 += 2;
 
 		/* Get the area for this direction: */
 		area(d1, d2, e1, e2, (subsampleIndices ? subsampleIndices[0] : 0), weights + 2);
