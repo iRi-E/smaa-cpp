@@ -241,24 +241,38 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	float Dright  = fabsf(L - Lright);
 	float Dbottom = fabsf(L - Lbottom);
 
-	/* Calculate left-left and top-top deltas: */
-	colorImage->getPixel(x - 2, y, color);
-	float Lleftleft = rgb2bw(color);
-	colorImage->getPixel(x, y - 2, color);
-	float Ltoptop = rgb2bw(color);
-	float Dleftleft = fabsf(Lleft - Lleftleft);
-	float Dtoptop   = fabsf(Ltop - Ltoptop);
+	/* Calculate the maximum delta in the direct neighborhood: */
+	float maxDelta = fmaxf(fmaxf(Dleft, Dright), fmaxf(Dtop, Dbottom));
 
-	/* Calculate the maximum delta: */
-	float maxDelta_x = fmaxf(fmaxf(Dleft, Dright), Dleftleft);
-	float maxDelta_y = fmaxf(fmaxf(Dtop, Dbottom), Dtoptop);
-	float finalDelta = fmaxf(maxDelta_x, maxDelta_y);
+	/* Left edge */
+	if (edges[0] != 0.0) {
+		/* Calculate left-left delta: */
+		colorImage->getPixel(x - 2, y, color);
+		float Lleftleft = rgb2bw(color);
+		float Dleftleft = fabsf(Lleft - Lleftleft);
 
-	/* Local contrast adaptation: */
-	if (finalDelta > m_local_contrast_adaptation_factor * Dleft)
-		edges[0] = 0.0;
-	if (finalDelta > m_local_contrast_adaptation_factor * Dtop)
-		edges[1] = 0.0;
+		/* Calculate the final maximum delta: */
+		maxDelta = fmaxf(maxDelta, Dleftleft);
+
+		/* Local contrast adaptation: */
+		if (maxDelta > m_local_contrast_adaptation_factor * Dleft)
+			edges[0] = 0.0;
+	}
+
+	/* Top edge */
+	if (edges[1] != 0.0) {
+		/* Calculate top-top delta: */
+		colorImage->getPixel(x, y - 2, color);
+		float Ltoptop = rgb2bw(color);
+		float Dtoptop = fabsf(Ltop - Ltoptop);
+
+		/* Calculate the final maximum delta: */
+		maxDelta = fmaxf(maxDelta, Dtoptop);
+
+		/* Local contrast adaptation: */
+		if (maxDelta > m_local_contrast_adaptation_factor * Dtop)
+			edges[1] = 0.0;
+	}
 }
 
 /**
@@ -305,23 +319,38 @@ void PixelShader::colorEdgeDetection(int x, int y,
 	float Dright  = color_delta(C, Cright);
 	float Dbottom = color_delta(C, Cbottom);
 
-	/* Calculate left-left and top-top deltas: */
-	float Cleftleft[4], Ctoptop[4];
-	colorImage->getPixel(x - 2, y, Cleftleft);
-	colorImage->getPixel(x, y - 2, Ctoptop);
-	float Dleftleft = color_delta(Cleft, Cleftleft);
-	float Dtoptop   = color_delta(Ctop, Ctoptop);
+	/* Calculate the maximum delta in the direct neighborhood: */
+	float maxDelta = fmaxf(fmaxf(Dleft, Dright), fmaxf(Dtop, Dbottom));
 
-	/* Calculate the maximum delta: */
-	float maxDelta_x = fmaxf(fmaxf(Dleft, Dright), Dleftleft);
-	float maxDelta_y = fmaxf(fmaxf(Dtop, Dbottom), Dtoptop);
-	float finalDelta = fmaxf(maxDelta_x, maxDelta_y);
+	/* Left edge */
+	if (edges[0] != 0.0) {
+		/* Calculate left-left delta: */
+		float Cleftleft[4];
+		colorImage->getPixel(x - 2, y, Cleftleft);
+		float Dleftleft = color_delta(Cleft, Cleftleft);
 
-	/* Local contrast adaptation: */
-	if (finalDelta > m_local_contrast_adaptation_factor * Dleft)
-		edges[0] = 0.0;
-	if (finalDelta > m_local_contrast_adaptation_factor * Dtop)
-		edges[1] = 0.0;
+		/* Calculate the final maximum delta: */
+		maxDelta = fmaxf(maxDelta, Dleftleft);
+
+		/* Local contrast adaptation: */
+		if (maxDelta > m_local_contrast_adaptation_factor * Dleft)
+			edges[0] = 0.0;
+	}
+
+	/* Top edge */
+	if (edges[1] != 0.0) {
+		/* Calculate top-top delta: */
+		float Ctoptop[4];
+		colorImage->getPixel(x, y - 2, Ctoptop);
+		float Dtoptop = color_delta(Ctop, Ctoptop);
+
+		/* Calculate the final maximum delta: */
+		maxDelta = fmaxf(maxDelta, Dtoptop);
+
+		/* Local contrast adaptation: */
+		if (maxDelta > m_local_contrast_adaptation_factor * Dtop)
+			edges[1] = 0.0;
+	}
 }
 
 /**
