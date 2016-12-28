@@ -47,18 +47,20 @@ enum CONFIG_PRESET {
 class PixelShader {
 
 private:
-	bool m_enable_diag_detection;
-	bool m_enable_corner_detection;
-	bool m_enable_predication;
 	float m_threshold;
 	float m_depth_threshold;
 	int m_max_search_steps;
+	bool m_enable_diag_detection;
 	int m_max_search_steps_diag;
+	bool m_enable_corner_detection;
 	int m_corner_rounding;
 	float m_local_contrast_adaptation_factor;
+	bool m_enable_predication;
 	float m_predication_threshold;
 	float m_predication_scale;
 	float m_predication_strength;
+	bool m_enable_reprojection;
+	float m_reprojection_weight_scale;
 
 public:
 	PixelShader() { setPresets(CONFIG_PRESET_HIGH); }
@@ -69,18 +71,20 @@ public:
 
 	void setPresets(int preset)
 	{
-		m_enable_diag_detection = true;
-		m_enable_corner_detection = true;
-		m_enable_predication = false;
 		m_threshold = 0.1;
 		m_depth_threshold = 0.1;
 		m_max_search_steps = 34;
+		m_enable_diag_detection = true;
 		m_max_search_steps_diag = 8;
+		m_enable_corner_detection = true;
 		m_corner_rounding = 25;
 		m_local_contrast_adaptation_factor = 2.0;
+		m_enable_predication = false;
 		m_predication_threshold = 0.01;
 		m_predication_scale = 2.0;
 		m_predication_strength = 0.4;
+		m_enable_reprojection = false;
+		m_reprojection_weight_scale = 30.0;
 
 		switch (preset) {
 			case CONFIG_PRESET_LOW:
@@ -120,37 +124,6 @@ public:
 	/* Set/get parameters */
 
 	/**
-	 * Specify whether to enable diagonal processing.
-	 */
-	inline void setEnableDiagDetection(bool enable) { m_enable_diag_detection = enable; }
-	inline bool getEnableDiagDetection() { return m_enable_diag_detection; }
-
-	/**
-	 * Specify whether to enable corner processing.
-	 */
-	inline void setEnableCornerDetection(bool enable) { m_enable_corner_detection = enable; }
-	inline bool getEnableCornerDetection() { return m_enable_corner_detection; }
-
-	/**
-	 * Specify whether to enable predicated thresholding.
-	 *
-	 * Predicated thresholding allows to better preserve texture details and to
-	 * improve performance, by decreasing the number of detected edges using an
-	 * additional buffer like the light accumulation buffer, object ids or even the
-	 * depth buffer (the depth buffer usage may be limited to indoor or short range
-	 * scenes).
-	 *
-	 * It locally decreases the luma or color threshold if an edge is found in an
-	 * additional buffer (so the global threshold can be higher).
-	 *
-	 * This method was developed by Playstation EDGE MLAA team, and used in
-	 * Killzone 3, by using the light accumulation buffer. More information here:
-	 *     http://iryoku.com/aacourse/downloads/06-MLAA-on-PS3.pptx
-	 */
-	inline void setEnablePredication(bool enable) { m_enable_predication = enable; }
-	inline bool getEnablePredication() { return m_enable_predication; }
-
-	/**
 	 * Specify the threshold or sensitivity to edges.
 	 * Lowering this value you will be able to detect more edges at the expense of
 	 * performance.
@@ -186,6 +159,13 @@ public:
 	 */
 	inline void setMaxSearchSteps(int steps) { m_max_search_steps = steps; }
 	inline int getMaxSearchSteps() { return m_max_search_steps; }
+
+	/**
+	 * Specify whether to enable diagonal processing.
+	 */
+	inline void setEnableDiagDetection(bool enable) { m_enable_diag_detection = enable; }
+	inline bool getEnableDiagDetection() { return m_enable_diag_detection; }
+
 	/**
 	 * Specify the maximum steps performed in the
 	 * diagonal pattern searches, at each side of the pixel. In this case we jump
@@ -197,6 +177,12 @@ public:
 	 */
 	inline void setMaxSearchStepsDiag(int steps) { m_max_search_steps_diag = steps; }
 	inline int getMaxSearchStepsDiag() { return m_max_search_steps_diag; }
+
+	/**
+	 * Specify whether to enable corner processing.
+	 */
+	inline void setEnableCornerDetection(bool enable) { m_enable_corner_detection = enable; }
+	inline bool getEnableCornerDetection() { return m_enable_corner_detection; }
 
 	/**
 	 * Specify how much sharp corners will be rounded.
@@ -220,6 +206,25 @@ public:
 	 */
 	inline void setLocalContrastAdaptationFactor(float factor) { m_local_contrast_adaptation_factor = factor; }
 	inline float getLocalContrastAdaptationFactor() { return m_local_contrast_adaptation_factor; }
+
+	/**
+	 * Specify whether to enable predicated thresholding.
+	 *
+	 * Predicated thresholding allows to better preserve texture details and to
+	 * improve performance, by decreasing the number of detected edges using an
+	 * additional buffer like the light accumulation buffer, object ids or even the
+	 * depth buffer (the depth buffer usage may be limited to indoor or short range
+	 * scenes).
+	 *
+	 * It locally decreases the luma or color threshold if an edge is found in an
+	 * additional buffer (so the global threshold can be higher).
+	 *
+	 * This method was developed by Playstation EDGE MLAA team, and used in
+	 * Killzone 3, by using the light accumulation buffer. More information here:
+	 *     http://iryoku.com/aacourse/downloads/06-MLAA-on-PS3.pptx
+	 */
+	inline void setEnablePredication(bool enable) { m_enable_predication = enable; }
+	inline bool getEnablePredication() { return m_enable_predication; }
 
 	/**
 	 * Specify threshold to be used in the additional predication buffer.
@@ -246,6 +251,36 @@ public:
 	 */
 	inline void setPredicationStrength(float strength) { m_predication_strength = strength; }
 	inline float getPredicationStrength() { return m_predication_strength; }
+
+	/**
+	 * Specify whether to enable temporal reprojection.
+	 *
+	 * Temporal reprojection allows to remove ghosting artifacts when using
+	 * temporal supersampling. We use the CryEngine 3 method which also introduces
+	 * velocity weighting. This feature is of extreme importance for totally
+	 * removing ghosting. More information here:
+	 *    http://iryoku.com/aacourse/downloads/13-Anti-Aliasing-Methods-in-CryENGINE-3.pdf
+	 *
+	 * Note that you'll need to setup a velocity buffer for enabling reprojection.
+	 * For static geometry, saving the previous depth buffer is a viable
+	 * alternative.
+	 */
+	inline void setEnableReprojection(bool enable) { m_enable_reprojection = enable; }
+	inline bool getEnableReprojection() { return m_enable_reprojection; }
+
+	/**
+	 * Specify scale that controls the velocity weighting. It allows to
+	 * remove ghosting trails behind the moving object, which are not removed by
+	 * just using reprojection. Using low values will exhibit ghosting, while using
+	 * high values will disable temporal supersampling under motion.
+	 *
+	 * Behind the scenes, velocity weighting removes temporal supersampling when
+	 * the velocity of the subsamples differs (meaning they are different objects).
+	 *
+	 * Range: [0.0, 80.0]
+	 */
+	inline void setReprojectionWeightScale(float scale) { m_reprojection_weight_scale = scale; }
+	inline float getReprojectionWeightScale() { return m_reprojection_weight_scale; }
 
 	/*-----------------------------------------------------------------------------*/
 	/* Edge Detection Pixel Shaders (First Pass) */
@@ -350,6 +385,7 @@ public:
 	void neighborhoodBlending(int x, int y,
 				  ImageReader *colorImage,
 				  ImageReader *blendImage,
+				  ImageReader *velocityImage,
 				  /* out */ float color[4]);
 
 	/**
@@ -363,6 +399,29 @@ public:
 	 * *ymax += 1;
 	 */
 	void getAreaNeighborhoodBlending(int *xmin, int *xmax, int *ymin, int *ymax);
+
+	/*-----------------------------------------------------------------------------*/
+	/* Temporal Resolve Pixel Shader (Optional Pass) -- untested yet! */
+
+	/**
+	 * Temporal Resolve Pixel Shader (Optional Pass)
+	 */
+	void resolve(int x, int y,
+		     ImageReader *currentColorImage,
+		     ImageReader *previousColorImage,
+		     ImageReader *velocityImage,
+		     /* out */ float color[4]);
+
+	/*
+	 * There is no getAreaResolve() function because the depending area cannot
+	 * be determined simply. It depends on the maximum velocity and user needs
+	 * to calculate it himself like this:
+	 *
+	 * *xmin -= maxVelocity;
+	 * *xmax += maxVelocity;
+	 * *ymin -= maxVelocity;
+	 * *ymax += maxVelocity;
+	 */
 
 private:
 	/* Internal */

@@ -74,6 +74,25 @@ static inline float color_delta(const float color1[4], const float color2[4])
 /*-----------------------------------------------------------------------------*/
 /* Internal Functions to Sample Pixel Color from Image with Bilinear Filtering */
 
+static void sample_bilinear(ImageReader *image, float x, float y, float output[4])
+{
+	float ix = floorf(x), iy = floorf(y);
+	float fx = x - ix, fy = y - iy;
+	int X = (int)ix, Y = (int)iy;
+
+	float color00[4], color10[4], color01[4], color11[4];
+
+	image->getPixel(X + 0, Y + 0, color00);
+	image->getPixel(X + 1, Y + 0, color10);
+	image->getPixel(X + 0, Y + 1, color01);
+	image->getPixel(X + 1, Y + 1, color11);
+
+	output[0] = bilinear(color00[0], color10[0], color01[0], color11[0], fx, fy);
+	output[1] = bilinear(color00[1], color10[1], color01[1], color11[1], fx, fy);
+	output[2] = bilinear(color00[2], color10[2], color01[2], color11[2], fx, fy);
+	output[3] = bilinear(color00[3], color10[3], color01[3], color11[3], fx, fy);
+}
+
 static void sample_bilinear_vertical(ImageReader *image, int x, int y, float yoffset, float output[4])
 {
 	float iy = floorf(yoffset);
@@ -968,6 +987,7 @@ void PixelShader::getAreaBlendingWeightCalculation(int *xmin, int *xmax, int *ym
 void PixelShader::neighborhoodBlending(int x, int y,
 				       ImageReader *colorImage,
 				       ImageReader *blendImage,
+				       ImageReader *velocityImage,
 				       /* out */ float color[4])
 {
 	float w[4];
@@ -983,6 +1003,15 @@ void PixelShader::neighborhoodBlending(int x, int y,
 	/* Is there any blending weight with a value greater than 0.0? */
 	if (right + bottom + left + top < 1e-5) {
 		colorImage->getPixel(x, y, color);
+
+		if (m_enable_reprojection && velocityImage) {
+			float velocity[4];
+			velocityImage->getPixel(x, y, velocity);
+
+			/* Pack velocity into the alpha channel: */
+			color[3] = sqrtf(5.0 * sqrtf(velocity[0] * velocity[0] + velocity[1] * velocity[1]));
+		}
+
 		return;
 	}
 
@@ -1014,6 +1043,18 @@ void PixelShader::neighborhoodBlending(int x, int y,
 	color[1] = weight1 * color1[1] + weight2 * color2[1];
 	color[2] = weight1 * color1[2] + weight2 * color2[2];
 	color[3] = weight1 * color1[3] + weight2 * color2[3];
+
+	if (m_enable_reprojection && velocityImage) {
+		/* Antialias velocity for proper reprojection in a later stage: */
+		float velocity1[4], velocity2[4];
+		samplefunc(velocityImage, x, y, offset1, velocity1);
+		samplefunc(velocityImage, x, y, offset2, velocity2);
+		float velocity_x = weight1 * velocity1[0] + weight2 * velocity2[0];
+		float velocity_y = weight1 * velocity1[1] + weight2 * velocity2[1];
+
+		/* Pack velocity into the alpha channel: */
+		color[3] = sqrtf(5.0 * sqrtf(velocity_x * velocity_x + velocity_y * velocity_y));
+	}
 }
 
 void PixelShader::getAreaNeighborhoodBlending(int *xmin, int *xmax, int *ymin, int *ymax)
@@ -1022,6 +1063,51 @@ void PixelShader::getAreaNeighborhoodBlending(int *xmin, int *xmax, int *ymin, i
 	*xmax += 1;
 	*ymin -= 1;
 	*ymax += 1;
+}
+
+/*-----------------------------------------------------------------------------*/
+/* Temporal Resolve Pixel Shader (Optional Pass) -- untested yet! */
+
+void PixelShader::resolve(int x, int y,
+			  ImageReader *currentColorImage,
+			  ImageReader *previousColorImage,
+			  ImageReader *velocityImage,
+			  /* out */ float color[4])
+{
+	if (m_enable_predication && velocityImage) {
+		/* Velocity is assumed to be calculated for motion blur, so we need to */
+		/* inverse it for reprojection: */
+		float velocity[4];
+		velocityImage->getPixel(x, y, velocity);
+
+		/* Fetch current pixel: */
+		float current[4];
+		currentColorImage->getPixel(x, y, current);
+
+		/* Reproject current coordinates and fetch previous pixel: */
+		float previous[4];
+		sample_bilinear(previousColorImage, x - velocity[0], y - velocity[1], previous);
+
+		/* Attenuate the previous pixel if the velocity is different: */
+		float delta = fabsf(current[3] * current[3] - previous[3] * previous[3]) / 5.0;
+		float weight = 0.5 * saturate(1.0 - sqrtf(delta) * m_reprojection_weight_scale);
+
+		/* Blend the pixels according to the calculated weight: */
+		color[0] = lerp(current[0], previous[0], weight);
+		color[1] = lerp(current[1], previous[1], weight);
+		color[2] = lerp(current[2], previous[2], weight);
+		color[3] = lerp(current[3], previous[3], weight);
+	}
+	else {
+		/* Just blend the pixels: */
+		float current[4], previous[4];
+		currentColorImage->getPixel(x, y, current);
+		previousColorImage->getPixel(x, y, previous);
+		color[0] = (current[0] + previous[0]) * 0.5;
+		color[1] = (current[1] + previous[1]) * 0.5;
+		color[2] = (current[2] + previous[2]) * 0.5;
+		color[3] = (current[3] + previous[3]) * 0.5;
+	}
 }
 
 /*-----------------------------------------------------------------------------*/

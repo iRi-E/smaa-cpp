@@ -423,7 +423,7 @@ static void process_file(int preset, int detection_type, float threshold, float 
 	/* 3. blend color with neighboring pixels */
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			ps.neighborhoodBlending(x, y, orignImage, blendImage, color);
+			ps.neighborhoodBlending(x, y, orignImage, blendImage, NULL, color);
 			finalImage->putPixel(x, y, color);
 		}
 	}
