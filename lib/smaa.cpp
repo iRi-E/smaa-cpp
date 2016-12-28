@@ -493,6 +493,9 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 
 	weights[0] = weights[1] = 0.0;
 
+	if (m_max_search_steps_diag <= 0)
+		return;
+
 	/* Search for the line ends: */
 	/*
 	 *                        |
@@ -636,6 +639,9 @@ bool PixelShader::isVerticalSearchUnneeded(ImageReader *edgesImage, int x, int y
 	int d1, d2;
 	bool found;
 	float e[4];
+
+	if (m_max_search_steps_diag <= 0)
+		return false;
 
 	/* Search for the line ends: */
 	/*
