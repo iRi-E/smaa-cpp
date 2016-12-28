@@ -71,48 +71,48 @@ public:
 
 	void setPresets(int preset)
 	{
-		m_threshold = 0.1;
-		m_depth_threshold = 0.1;
+		m_threshold = 0.1f;
+		m_depth_threshold = 0.1f;
 		m_max_search_steps = 34;
 		m_enable_diag_detection = true;
 		m_max_search_steps_diag = 8;
 		m_enable_corner_detection = true;
 		m_corner_rounding = 25;
-		m_local_contrast_adaptation_factor = 2.0;
+		m_local_contrast_adaptation_factor = 2.0f;
 		m_enable_predication = false;
-		m_predication_threshold = 0.01;
-		m_predication_scale = 2.0;
-		m_predication_strength = 0.4;
+		m_predication_threshold = 0.01f;
+		m_predication_scale = 2.0f;
+		m_predication_strength = 0.4f;
 		m_enable_reprojection = false;
-		m_reprojection_weight_scale = 30.0;
+		m_reprojection_weight_scale = 30.0f;
 
 		switch (preset) {
 			case CONFIG_PRESET_LOW:
-				m_threshold = 0.15;
+				m_threshold = 0.15f;
 				m_max_search_steps = 10; /* 2 * 4 + 2 = 10 */
 				m_enable_diag_detection = false;
 				m_enable_corner_detection = false;
 				break;
 			case CONFIG_PRESET_MEDIUM:
-				m_threshold = 0.1;
+				m_threshold = 0.1f;
 				m_max_search_steps = 18; /* 2 * 8 + 2 = 18 */
 				m_enable_diag_detection = false;
 				m_enable_corner_detection = false;
 				break;
 			case CONFIG_PRESET_HIGH:
-				m_threshold = 0.1;
+				m_threshold = 0.1f;
 				m_max_search_steps = 34; /* 2 * 16 + 2 = 34 */
 				m_max_search_steps_diag = 8;
 				m_corner_rounding = 25;
 				break;
 			case CONFIG_PRESET_ULTRA:
-				m_threshold = 0.05;
+				m_threshold = 0.05f;
 				m_max_search_steps = 66; /* 2 * 32 + 2 = 66 */
 				m_max_search_steps_diag = 16;
 				m_corner_rounding = 25;
 				break;
 			case CONFIG_PRESET_EXTREME:
-				m_threshold = 0.05;
+				m_threshold = 0.05f;
 				m_max_search_steps = 362; /* 362 - 1 = 19^2 */
 				m_max_search_steps_diag = 19;
 				m_corner_rounding = 25;

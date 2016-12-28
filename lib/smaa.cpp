@@ -36,19 +36,19 @@ namespace SMAA {
 static const int AREATEX_SIZE = 80; /* 20 * 4 = 80 */
 static const int AREATEX_MAX_DISTANCE = 20;
 static const int AREATEX_MAX_DISTANCE_DIAG = 20;
-static const float RGB_WEIGHTS[3] = {0.2126, 0.7152, 0.0722};
+static const float RGB_WEIGHTS[3] = {0.2126f, 0.7152f, 0.0722f};
 
 /*-----------------------------------------------------------------------------*/
 /* Misc functions */
 
 static inline float step(float edge, float x)
 {
-	return x < edge ? 0.0 : 1.0;
+	return x < edge ? 0.0f : 1.0f;
 }
 
 static inline float saturate(float x)
 {
-	return 0.0 < x ? (x < 1.0 ? x : 1.0) : 0.0;
+	return 0.0f < x ? (x < 1.0f ? x : 1.0f) : 0.0f;
 }
 
 static inline float lerp(float a, float b, float p)
@@ -58,7 +58,7 @@ static inline float lerp(float a, float b, float p)
 
 static inline float bilinear(float c00, float c10, float c01, float c11, float x, float y)
 {
-	return (c00 * (1.0 - x) + c10 * x) * (1.0 - y) + (c01 * (1.0 - x) + c11 * x) * y;
+	return (c00 * (1.0f - x) + c10 * x) * (1.0f - y) + (c01 * (1.0f - x) + c11 * x) * y;
 }
 
 static inline float rgb2bw(const float color[4])
@@ -173,7 +173,7 @@ static void area(int d1, int d2, int e1, int e2, int offset,
  * diagonal distance and crossing edges 'e'.
  */
 static void area_diag(int d1, int d2, int e1, int e2, int offset,
-		     /* out */ float weights[2])
+		      /* out */ float weights[2])
 {
 	int x = AREATEX_MAX_DISTANCE_DIAG * e1 + d1;
 	int y = AREATEX_MAX_DISTANCE_DIAG * e2 + d2;
@@ -206,8 +206,8 @@ void PixelShader::calculatePredicatedThreshold(int x, int y, ImageReader *predic
 
 	float scaled = m_predication_scale * m_threshold;
 
-	threshold[0] = scaled * (1.0 - m_predication_strength * edges[0]);
-	threshold[1] = scaled * (1.0 - m_predication_strength * edges[1]);
+	threshold[0] = scaled * (1.0f - m_predication_strength * edges[0]);
+	threshold[1] = scaled * (1.0f - m_predication_strength * edges[1]);
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -246,11 +246,11 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	/* We do the usual threshold: */
 	edges[0] = step(threshold[0], Dleft);
 	edges[1] = step(threshold[1], Dtop);
-	edges[2] = 0.0;
-	edges[3] = 1.0;
+	edges[2] = 0.0f;
+	edges[3] = 1.0f;
 
 	/* Then discard if there is no edge: */
-	if (edges[0] == 0.0 && edges[1] == 0.0)
+	if (edges[0] == 0.0f && edges[1] == 0.0f)
 		return;
 
 	/* Calculate right and bottom deltas: */
@@ -265,7 +265,7 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	float maxDelta = fmaxf(fmaxf(Dleft, Dright), fmaxf(Dtop, Dbottom));
 
 	/* Left edge */
-	if (edges[0] != 0.0) {
+	if (edges[0] != 0.0f) {
 		/* Calculate left-left delta: */
 		colorImage->getPixel(x - 2, y, color);
 		float Lleftleft = rgb2bw(color);
@@ -276,11 +276,11 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 
 		/* Local contrast adaptation: */
 		if (maxDelta > m_local_contrast_adaptation_factor * Dleft)
-			edges[0] = 0.0;
+			edges[0] = 0.0f;
 	}
 
 	/* Top edge */
-	if (edges[1] != 0.0) {
+	if (edges[1] != 0.0f) {
 		/* Calculate top-top delta: */
 		colorImage->getPixel(x, y - 2, color);
 		float Ltoptop = rgb2bw(color);
@@ -291,7 +291,7 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 
 		/* Local contrast adaptation: */
 		if (maxDelta > m_local_contrast_adaptation_factor * Dtop)
-			edges[1] = 0.0;
+			edges[1] = 0.0f;
 	}
 }
 
@@ -333,11 +333,11 @@ void PixelShader::colorEdgeDetection(int x, int y,
 	/* We do the usual threshold: */
 	edges[0] = step(threshold[0], Dleft);
 	edges[1] = step(threshold[1], Dtop);
-	edges[2] = 0.0;
-	edges[3] = 1.0;
+	edges[2] = 0.0f;
+	edges[3] = 1.0f;
 
 	/* Then discard if there is no edge: */
-	if (edges[0] == 0.0 && edges[1] == 0.0)
+	if (edges[0] == 0.0f && edges[1] == 0.0f)
 		return;
 
 	/* Calculate right and bottom deltas: */
@@ -351,7 +351,7 @@ void PixelShader::colorEdgeDetection(int x, int y,
 	float maxDelta = fmaxf(fmaxf(Dleft, Dright), fmaxf(Dtop, Dbottom));
 
 	/* Left edge */
-	if (edges[0] != 0.0) {
+	if (edges[0] != 0.0f) {
 		/* Calculate left-left delta: */
 		float Cleftleft[4];
 		colorImage->getPixel(x - 2, y, Cleftleft);
@@ -362,11 +362,11 @@ void PixelShader::colorEdgeDetection(int x, int y,
 
 		/* Local contrast adaptation: */
 		if (maxDelta > m_local_contrast_adaptation_factor * Dleft)
-			edges[0] = 0.0;
+			edges[0] = 0.0f;
 	}
 
 	/* Top edge */
-	if (edges[1] != 0.0) {
+	if (edges[1] != 0.0f) {
 		/* Calculate top-top delta: */
 		float Ctoptop[4];
 		colorImage->getPixel(x, y - 2, Ctoptop);
@@ -377,7 +377,7 @@ void PixelShader::colorEdgeDetection(int x, int y,
 
 		/* Local contrast adaptation: */
 		if (maxDelta > m_local_contrast_adaptation_factor * Dtop)
-			edges[1] = 0.0;
+			edges[1] = 0.0f;
 	}
 }
 
@@ -404,8 +404,8 @@ void PixelShader::depthEdgeDetection(int x, int y,
 
 	edges[0] = step(m_depth_threshold, fabsf(here[0] - left[0]));
 	edges[1] = step(m_depth_threshold, fabsf(here[0] - top[0]));
-	edges[2] = 0.0;
-	edges[3] = 1.0;
+	edges[2] = 0.0f;
+	edges[3] = 1.0f;
 }
 
 void PixelShader::getAreaDepthEdgeDetection(int *xmin, int *xmax, int *ymin, int *ymax)
@@ -440,11 +440,11 @@ int PixelShader::searchDiag1(ImageReader *edgesImage, int x, int y, int dir,
 		x += dir;
 		y -= dir; /* Search in direction to bottom-left or top-right */
 		edgesImage->getPixel(x, y, edges);
-		if (edges[1] == 0.0) { /* north */
+		if (edges[1] == 0.0f) { /* north */
 			*found = true;
 			break;
 		}
-		if (edges[0] == 0.0) { /* west */
+		if (edges[0] == 0.0f) { /* west */
 			*found = true;
 			/* Ended with north edge if dy > 0 (i.e. dir < 0) */
 			return (dir < 0) ? x : x - dir;
@@ -465,12 +465,12 @@ int PixelShader::searchDiag2(ImageReader *edgesImage, int x, int y, int dir,
 		x += dir;
 		y += dir; /* Search in direction to top-left or bottom-right */
 		edgesImage->getPixel(x, y, edges);
-		if (edges[1] == 0.0) { /* north */
+		if (edges[1] == 0.0f) { /* north */
 			*found = true;
 			break;
 		}
 		edgesImage->getPixel(x + 1, y, edges);
-		if (edges[0] == 0.0) { /* east */
+		if (edges[0] == 0.0f) { /* east */
 			*found = true;
 			/* Ended with north edge if dy > 0 (i.e. dir > 0) */
 			return (dir > 0) ? x : x - dir;
@@ -491,7 +491,7 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 	bool found1, found2;
 	float e[4], c[4];
 
-	weights[0] = weights[1] = 0.0;
+	weights[0] = weights[1] = 0.0f;
 
 	if (m_max_search_steps_diag <= 0)
 		return;
@@ -515,7 +515,7 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 	 *   |
 	 *
 	 */
-	if (edges[0] > 0.0) { /* west of (x, y) */
+	if (edges[0] > 0.0f) { /* west of (x, y) */
 		d1 = x - searchDiag1(edgesImage, x, y, -1, &found1);
 	}
 	else {
@@ -543,19 +543,19 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 		if (found1) {
 			int co_x = x - d1, co_y = y + d1;
 			edgesImage->getPixel(co_x - 1, co_y, c);
-			if (c[1] > 0.0)
+			if (c[1] > 0.0f)
 				e1 += 2; /* ...->left->left */
 			edgesImage->getPixel(co_x, co_y, c);
-			if (c[0] > 0.0)
+			if (c[0] > 0.0f)
 				e1 += 1; /* ...->left->down->down */
 		}
 		if (found2) {
 			int co_x = x + d2, co_y = y - d2;
 			edgesImage->getPixel(co_x + 1, co_y, c);
-			if (c[1] > 0.0)
+			if (c[1] > 0.0f)
 				e2 += 2; /* ...->right->right */
 			edgesImage->getPixel(co_x + 1, co_y - 1, c);
-			if (c[0] > 0.0)
+			if (c[0] > 0.0f)
 				e2 += 1; /* ...->right->up->up */
 		}
 
@@ -584,7 +584,7 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 	 */
 	d1 = x - searchDiag2(edgesImage, x, y, -1, &found1);
 	edgesImage->getPixel(x + 1, y, e);
-	if (e[0] > 0.0) { /* east of (x, y) */
+	if (e[0] > 0.0f) { /* east of (x, y) */
 		d2 = searchDiag2(edgesImage, x, y, 1, &found2) - x;
 	}
 	else {
@@ -611,18 +611,18 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 		if (found1) {
 			int co_x = x - d1, co_y = y - d1;
 			edgesImage->getPixel(co_x - 1, co_y, c);
-			if (c[1] > 0.0)
+			if (c[1] > 0.0f)
 				e1 += 2; /* ...->left->left */
 			edgesImage->getPixel(co_x, co_y - 1, c);
-			if (c[0] > 0.0)
+			if (c[0] > 0.0f)
 				e1 += 1; /* ...->left->up->up */
 		}
 		if (found2) {
 			int co_x = x + d2, co_y = y + d2;
 			edgesImage->getPixel(co_x + 1, co_y, c);
-			if (c[1] > 0.0)
+			if (c[1] > 0.0f)
 				e2 += 2; /* ...->right->right */
-			if (c[0] > 0.0)
+			if (c[0] > 0.0f)
 				e2 += 1; /* ...->right->down->down */
 		}
 
@@ -666,7 +666,7 @@ bool PixelShader::isVerticalSearchUnneeded(ImageReader *edgesImage, int x, int y
 	 * performing unneeded vertical search and weight calculations.
 	 */
 	edgesImage->getPixel(x - 1, y, e);
-	if (e[1] > 0.0) /* north of (x-1, y) */
+	if (e[1] > 0.0f) /* north of (x-1, y) */
 		d1 = x - searchDiag2(edgesImage, x - 1, y, -1, &found);
 	else
 		d1 = 0;
@@ -698,12 +698,12 @@ int PixelShader::searchXLeft(ImageReader *edgesImage, int x, int y)
 
 	while (x > end) {
 		edgesImage->getPixel(x, y, edges);
-		if (edges[1] == 0.0)   /* Is the north edge not activated? */
+		if (edges[1] == 0.0f)   /* Is the north edge not activated? */
 			break; /* x + 1 */
-		if (edges[0] != 0.0)   /* Or is there a bottom crossing edge that breaks the line? */
+		if (edges[0] != 0.0f)   /* Or is there a bottom crossing edge that breaks the line? */
 			return x;
 		edgesImage->getPixel(x, y - 1, edges);
-		if (edges[0] != 0.0)   /* Or is there a top crossing edge that breaks the line? */
+		if (edges[0] != 0.0f)   /* Or is there a top crossing edge that breaks the line? */
 			return x;
 		x--;
 	}
@@ -719,11 +719,11 @@ int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
 	while (x < end) {
 		x++;
 		edgesImage->getPixel(x, y, edges);
-		if (edges[1] == 0.0 || /* Is the north edge not activated? */
-		    edges[0] != 0.0)   /* Or is there a bottom crossing edge that breaks the line? */
+		if (edges[1] == 0.0f || /* Is the north edge not activated? */
+		    edges[0] != 0.0f)   /* Or is there a bottom crossing edge that breaks the line? */
 			break;
 		edgesImage->getPixel(x, y - 1, edges);
-		if (edges[0] != 0.0)   /* Or is there a top crossing edge that breaks the line? */
+		if (edges[0] != 0.0f)   /* Or is there a top crossing edge that breaks the line? */
 			break;
 	}
 
@@ -737,12 +737,12 @@ int PixelShader::searchYUp(ImageReader *edgesImage, int x, int y)
 
 	while (y > end) {
 		edgesImage->getPixel(x, y, edges);
-		if (edges[0] == 0.0)   /* Is the west edge not activated? */
+		if (edges[0] == 0.0f)   /* Is the west edge not activated? */
 			break; /* y + 1 */
-		if (edges[1] != 0.0)   /* Or is there a right crossing edge that breaks the line? */
+		if (edges[1] != 0.0f)   /* Or is there a right crossing edge that breaks the line? */
 			return y;
 		edgesImage->getPixel(x - 1, y, edges);
-		if (edges[1] != 0.0)   /* Or is there a left crossing edge that breaks the line? */
+		if (edges[1] != 0.0f)   /* Or is there a left crossing edge that breaks the line? */
 			return y;
 		y--;
 	}
@@ -758,11 +758,11 @@ int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
 	while (y < end) {
 		y++;
 		edgesImage->getPixel(x, y, edges);
-		if (edges[0] == 0.0 || /* Is the west edge not activated? */
-		    edges[1] != 0.0)   /* Or is there a right crossing edge that breaks the line? */
+		if (edges[0] == 0.0f || /* Is the west edge not activated? */
+		    edges[1] != 0.0f)   /* Or is there a right crossing edge that breaks the line? */
 			break;
 		edgesImage->getPixel(x - 1, y, edges);
-		if (edges[1] != 0.0)   /* Or is there a left crossing edge that breaks the line? */
+		if (edges[1] != 0.0f)   /* Or is there a left crossing edge that breaks the line? */
 			break;
 	}
 
@@ -776,12 +776,12 @@ void PixelShader::detectHorizontalCornerPattern(ImageReader *edgesImage,
 						/* inout */ float weights[4],
 						int left, int right, int y, int d1, int d2)
 {
-	float factor[2] = {1.0, 1.0};
-	float rounding = 1.0 - (float)m_corner_rounding / 100.0;
+	float factor[2] = {1.0f, 1.0f};
+	float rounding = 1.0f - (float)m_corner_rounding / 100.0f;
 	float edges[4];
 
 	/* Reduce blending for pixels in the center of a line. */
-	rounding *= (d1 == d2) ? 0.5 : 1.0;
+	rounding *= (d1 == d2) ? 0.5f : 1.0f;
 
 	/* Near the left corner */
 	if (d1 <= d2) {
@@ -806,12 +806,12 @@ void PixelShader::detectVerticalCornerPattern(ImageReader *edgesImage,
 					      /* inout */ float weights[4],
 					      int top, int bottom, int x, int d1, int d2)
 {
-	float factor[2] = {1.0, 1.0};
-	float rounding = 1.0 - (float)m_corner_rounding / 100.0;
+	float factor[2] = {1.0f, 1.0f};
+	float rounding = 1.0f - (float)m_corner_rounding / 100.0f;
 	float edges[4];
 
 	/* Reduce blending for pixels in the center of a line. */
-	rounding *= (d1 == d2) ? 0.5 : 1.0;
+	rounding *= (d1 == d2) ? 0.5f : 1.0f;
 
 	/* Near the top corner */
 	if (d1 <= d2) {
@@ -843,10 +843,10 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 {
 	float edges[4], c[4];
 
-	weights[0] = weights[1] = weights[2] = weights[3] = 0.0;
+	weights[0] = weights[1] = weights[2] = weights[3] = 0.0f;
 	edgesImage->getPixel(x, y, edges);
 
-	if (edges[1] > 0.0) { /* Edge at north */
+	if (edges[1] > 0.0f) { /* Edge at north */
 		if (m_enable_diag_detection) {
 			/* Diagonals have both north and west edges, so calculating weights for them */
 			/* in one of the boundaries is enough. */
@@ -854,7 +854,7 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 
 			/* We give priority to diagonals, so if we find a diagonal we skip  */
 			/* horizontal/vertical processing. */
-			if (weights[0] + weights[1] != 0.0)
+			if (weights[0] + weights[1] != 0.0f)
 				return;
 		}
 
@@ -887,16 +887,16 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		 * where N is max search distance
 		 */
 		edgesImage->getPixel(left, y - 1, c);
-		if (c[0] > 0.0)
+		if (c[0] > 0.0f)
 			e1 += 1;
 		edgesImage->getPixel(left, y, c);
-		if (c[0] > 0.0)
+		if (c[0] > 0.0f)
 			e1 += 2;
 		edgesImage->getPixel(right + 1, y - 1, c);
-		if (c[0] > 0.0)
+		if (c[0] > 0.0f)
 			e2 += 1;
 		edgesImage->getPixel(right + 1, y, c);
-		if (c[0] > 0.0)
+		if (c[0] > 0.0f)
 			e2 += 2;
 
 		/* Ok, we know how this pattern looks like, now it is time for getting */
@@ -908,7 +908,7 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 			detectHorizontalCornerPattern(edgesImage, weights, left, right, y, d1, d2);
 	}
 
-	if (edges[0] > 0.0) { /* Edge at west */
+	if (edges[0] > 0.0f) { /* Edge at west */
 		/* Did we already do diagonal search for this west edge from the left neighboring pixel? */
 		if (m_enable_diag_detection && isVerticalSearchUnneeded(edgesImage, x, y))
 			return;
@@ -947,16 +947,16 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 		 * where N is max search distance
 		 */
 		edgesImage->getPixel(x - 1, top, c);
-		if (c[1] > 0.0)
+		if (c[1] > 0.0f)
 			e1 += 1;
 		edgesImage->getPixel(x, top, c);
-		if (c[1] > 0.0)
+		if (c[1] > 0.0f)
 			e1 += 2;
 		edgesImage->getPixel(x - 1, bottom + 1, c);
-		if (c[1] > 0.0)
+		if (c[1] > 0.0f)
 			e2 += 1;
 		edgesImage->getPixel(x, bottom + 1, c);
-		if (c[1] > 0.0)
+		if (c[1] > 0.0f)
 			e2 += 2;
 
 		/* Get the area for this direction: */
@@ -1015,7 +1015,7 @@ void PixelShader::neighborhoodBlending(int x, int y,
 			velocityImage->getPixel(x, y, velocity);
 
 			/* Pack velocity into the alpha channel: */
-			color[3] = sqrtf(5.0 * sqrtf(velocity[0] * velocity[0] + velocity[1] * velocity[1]));
+			color[3] = sqrtf(5.0f * sqrtf(velocity[0] * velocity[0] + velocity[1] * velocity[1]));
 		}
 
 		return;
@@ -1059,7 +1059,7 @@ void PixelShader::neighborhoodBlending(int x, int y,
 		float velocity_y = weight1 * velocity1[1] + weight2 * velocity2[1];
 
 		/* Pack velocity into the alpha channel: */
-		color[3] = sqrtf(5.0 * sqrtf(velocity_x * velocity_x + velocity_y * velocity_y));
+		color[3] = sqrtf(5.0f * sqrtf(velocity_x * velocity_x + velocity_y * velocity_y));
 	}
 }
 
@@ -1095,8 +1095,8 @@ void PixelShader::resolve(int x, int y,
 		sample_bilinear(previousColorImage, x - velocity[0], y - velocity[1], previous);
 
 		/* Attenuate the previous pixel if the velocity is different: */
-		float delta = fabsf(current[3] * current[3] - previous[3] * previous[3]) / 5.0;
-		float weight = 0.5 * saturate(1.0 - sqrtf(delta) * m_reprojection_weight_scale);
+		float delta = fabsf(current[3] * current[3] - previous[3] * previous[3]) / 5.0f;
+		float weight = 0.5f * saturate(1.0f - sqrtf(delta) * m_reprojection_weight_scale);
 
 		/* Blend the pixels according to the calculated weight: */
 		color[0] = lerp(current[0], previous[0], weight);
@@ -1109,10 +1109,10 @@ void PixelShader::resolve(int x, int y,
 		float current[4], previous[4];
 		currentColorImage->getPixel(x, y, current);
 		previousColorImage->getPixel(x, y, previous);
-		color[0] = (current[0] + previous[0]) * 0.5;
-		color[1] = (current[1] + previous[1]) * 0.5;
-		color[2] = (current[2] + previous[2]) * 0.5;
-		color[3] = (current[3] + previous[3]) * 0.5;
+		color[0] = (current[0] + previous[0]) * 0.5f;
+		color[1] = (current[1] + previous[1]) * 0.5f;
+		color[2] = (current[2] + previous[2]) * 0.5f;
+		color[3] = (current[3] + previous[3]) * 0.5f;
 	}
 }
 

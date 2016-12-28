@@ -22,7 +22,7 @@
 
 #include "smaa.h"
 
-static const float FLOAT_VAL_NOT_SPECIFIED = -1.0;
+static const float FLOAT_VAL_NOT_SPECIFIED = -1.0f;
 static const int INT_VAL_NOT_SPECIFIED = -2;
 static const int END_OF_LIST = -1;
 
@@ -276,7 +276,7 @@ static void write_png_file(const char *file_name, bool print_info)
 
 static inline void write_pixel16(png_byte **ptr, float color)
 {
-	unsigned int c = (unsigned int)roundf(color * 65535.0);
+	unsigned int c = (unsigned int)roundf(color * 65535.0f);
 	*(*ptr)++ = (png_byte)(c >> 8);
 	*(*ptr)++ = (png_byte)(c & 0xff);
 }
@@ -288,7 +288,7 @@ static void process_file(int preset, int detection_type, float threshold, float 
 	using namespace std::chrono;
 
 	Image *orignImage, *edgesImage, *blendImage, *finalImage, *depthImage;
-	float color[4], edges[4], weights[4], depth[4] = {0.0, 0.0, 0.0, 0.0};
+	float color[4], edges[4], weights[4], depth[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 	const char *type_name;
 	steady_clock::time_point begin, end;
 
@@ -351,22 +351,22 @@ static void process_file(int preset, int detection_type, float threshold, float 
 		png_byte* ptr = row_pointers[y];
 		for (int x = 0; x < width; x++) {
 			if (bit_depth == 16) {
-				color[0] = (float)((*ptr++ << 8) + *ptr++) / 65535.0;
-				color[1] = (float)((*ptr++ << 8) + *ptr++) / 65535.0;
-				color[2] = (float)((*ptr++ << 8) + *ptr++) / 65535.0;
-				color[3] = has_alpha ? (float)((*ptr++ << 8) + *ptr++) / 65535.0 : 1.0;
+				color[0] = (float)((*ptr++ << 8) + *ptr++) / 65535.0f;
+				color[1] = (float)((*ptr++ << 8) + *ptr++) / 65535.0f;
+				color[2] = (float)((*ptr++ << 8) + *ptr++) / 65535.0f;
+				color[3] = has_alpha ? (float)((*ptr++ << 8) + *ptr++) / 65535.0f : 1.0f;
 			}
 			else {
-				color[0] = (float)*ptr++ / 255.0;
-				color[1] = (float)*ptr++ / 255.0;
-				color[2] = (float)*ptr++ / 255.0;
-				color[3] = has_alpha ? (float)*ptr++ / 255.0 : 1.0;
+				color[0] = (float)*ptr++ / 255.0f;
+				color[1] = (float)*ptr++ / 255.0f;
+				color[2] = (float)*ptr++ / 255.0f;
+				color[3] = has_alpha ? (float)*ptr++ / 255.0f : 1.0f;
 			}
 
 			if (detection_type == ED_DEPTH) {
 				depth[0] = color[3];
 				depthImage->putPixel(x, y, depth);
-				color[3] = 1.0;
+				color[3] = 1.0f;
 			}
 
 			orignImage->putPixel(x, y, color);
@@ -451,11 +451,11 @@ static void process_file(int preset, int detection_type, float threshold, float 
 					write_pixel16(&ptr, color[3]);
 			}
 			else {
-				*ptr++ = (png_byte)roundf(color[0] * 255.0);
-				*ptr++ = (png_byte)roundf(color[1] * 255.0);
-				*ptr++ = (png_byte)roundf(color[2] * 255.0);
+				*ptr++ = (png_byte)roundf(color[0] * 255.0f);
+				*ptr++ = (png_byte)roundf(color[1] * 255.0f);
+				*ptr++ = (png_byte)roundf(color[2] * 255.0f);
 				if (has_alpha)
-					*ptr++ = (png_byte)roundf(color[3] * 255.0);
+					*ptr++ = (png_byte)roundf(color[3] * 255.0f);
 			}
 		}
 	}
@@ -503,14 +503,14 @@ int main(int argc, char **argv)
 				break;
 			case 't':
 				threshold = strtof(optarg, &endptr);
-				if (threshold < 0.0 || *endptr != '\0') {
+				if (threshold < 0.0f || *endptr != '\0') {
 					fprintf(stderr, "Invalid threshold: %s\n", optarg);
 					status = 1;
 				}
 				break;
 			case 'a':
 				adaption = strtof(optarg, &endptr);
-				if (adaption < 0.0 || *endptr != '\0') {
+				if (adaption < 0.0f || *endptr != '\0') {
 					fprintf(stderr, "Invalid contrast adaption factor: %s\n", optarg);
 					status = 1;
 				}
