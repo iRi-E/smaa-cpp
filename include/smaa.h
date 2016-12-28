@@ -128,7 +128,7 @@ public:
 	 * Lowering this value you will be able to detect more edges at the expense of
 	 * performance.
 	 *
-	 * Range: [0, 0.5]
+	 * Range: [0.0, 0.5]
 	 *   0.1 is a reasonable value, and allows to catch most visible edges.
 	 *   0.05 is a rather overkill value, that allows to catch 'em all.
 	 *
@@ -239,7 +239,7 @@ public:
 	 * Specify how much to scale the global threshold used for luma or color edge
 	 * detection when using predication.
 	 *
-	 * Range: [1, 5]
+	 * Range: [1.0, 5.0]
 	 */
 	inline void setPredicationScale(float scale) { m_predication_scale = scale; }
 	inline float getPredicationScale() { return m_predication_scale; }
@@ -247,7 +247,7 @@ public:
 	/**
 	 * Specify how much to locally decrease the threshold.
 	 *
-	 * Range: [0, 1]
+	 * Range: [0.0, 1.0]
 	 */
 	inline void setPredicationStrength(float strength) { m_predication_strength = strength; }
 	inline float getPredicationStrength() { return m_predication_strength; }
