@@ -508,40 +508,33 @@ private:
 		m_data[offset_index][coords.y][coords.x][1] = pixel.y;
 	}
 
-	bool inside(Dbl2 p1, Dbl2 p2, Dbl2 p);
 	double area1(Dbl2 p1, Dbl2 p2, Int2 p);
 	Dbl2 area(int pattern, Dbl2 p1, Dbl2 p2, int left, Dbl2 offset);
 	Dbl2 calculate(int pattern, int left, int right, Dbl2 offset);
 };
-
-bool AreaDiag::inside(Dbl2 p1, Dbl2 p2, Dbl2 p)
-{
-	if (p1.x != p2.x || p1.y != p2.y) {
-		double x = p.x, y = p.y;
-		double xm = (p1.x + p2.x) / 2.0, ym = (p1.y + p2.y) / 2.0;
-		double a = p2.y - p1.y;
-		double b = p1.x - p2.x;
-		return (a * (x - xm) + b * (y - ym) > 0);
-	}
-	else
-                return true;
-}
 
 /* Calculates the area under the line p1->p2 for the pixel 'p' using brute */
 /* force sampling: */
 /* (quick and dirty solution, but it works) */
 double AreaDiag::area1(Dbl2 p1, Dbl2 p2, Int2 p)
 {
-	int a = 0;
+	if (p1.x == p2.x && p1.y == p2.y)
+		return 1.0;
 
-	for (int x = 0; x < SAMPLES_DIAG; x++) {
-		for (int y = 0; y < SAMPLES_DIAG; y++) {
-			if (inside(p1, p2, Dbl2((double)p.x + (double)x / (double)(SAMPLES_DIAG - 1),
-						(double)p.y + (double)y / (double)(SAMPLES_DIAG - 1))))
-				a++;
+	double xm = (p1.x + p2.x) / 2.0, ym = (p1.y + p2.y) / 2.0;
+	double a = p2.y - p1.y;
+	double b = p1.x - p2.x;
+	int count = 0;
+
+	for (int ix = 0; ix < SAMPLES_DIAG; ix++) {
+		double x = p.x + (double)ix / (double)(SAMPLES_DIAG - 1);
+		for (int iy = 0; iy < SAMPLES_DIAG; iy++) {
+			double y = p.y + (double)iy / (double)(SAMPLES_DIAG - 1);
+			if (a * (x - xm) + b * (y - ym) > 0.0) /* inside? */
+				count++;
 		}
 	}
-	return (double)a / (double)(SAMPLES_DIAG * SAMPLES_DIAG);
+	return (double)count / (double)(SAMPLES_DIAG * SAMPLES_DIAG);
 }
 
 /* Calculates the area under the line p1->p2: */
