@@ -29,6 +29,7 @@ project(smaa-cpp
 set(PROJECT_SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR})
 
 # Options
+option(WITH_SUBPIXEL_RENDERING "Enable subpixel rendering"             ON)
 option(WITH_LIBRARY_STATIC     "Enable building static library"        ON)
 option(WITH_LIBRARY_SHARED     "Enable building shared library"        OFF)
 option(WITH_EXAMPLE            "Enable building sample program"        ON)

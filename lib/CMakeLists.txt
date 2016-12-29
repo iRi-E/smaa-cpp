@@ -34,9 +34,14 @@ set(SRC
 	${GENSRC}
 )
 
+if(WITH_SUBPIXEL_RENDERING)
+	set(AREATEX_OPTIONS -s)
+	add_definitions(-DWITH_SUBPIXEL_RENDERING)
+endif()
+
 add_custom_command(
 	OUTPUT ${GENSRC}
-	COMMAND "$<TARGET_FILE:smaa_areatex>" ${GENSRC}
+	COMMAND "$<TARGET_FILE:smaa_areatex>" ${AREATEX_OPTIONS} ${GENSRC}
 	DEPENDS smaa_areatex
 )
 add_custom_target(smaa_areatex_header SOURCES ${GENSRC})

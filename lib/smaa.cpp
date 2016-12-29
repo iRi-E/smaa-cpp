@@ -151,8 +151,10 @@ static void area(int d1, int d2, int e1, int e2, int offset,
 	float x = (float)(AREATEX_MAX_DISTANCE * e1) + sqrtf((float)d1);
 	float y = (float)(AREATEX_MAX_DISTANCE * e2) + sqrtf((float)d2);
 
+#ifdef WITH_SUBPIXEL_RENDERING
 	/* Move to proper place, according to the subpixel offset: */
 	y += (float)(AREATEX_SIZE * offset);
+#endif
 
 	/* Do it! */
 	float ix = floorf(x), iy = floorf(y);
@@ -178,8 +180,10 @@ static void area_diag(int d1, int d2, int e1, int e2, int offset,
 	int x = AREATEX_MAX_DISTANCE_DIAG * e1 + d1;
 	int y = AREATEX_MAX_DISTANCE_DIAG * e2 + d2;
 
+#ifdef WITH_SUBPIXEL_RENDERING
 	/* Move to proper place, according to the subpixel offset: */
 	y += AREATEX_SIZE * offset;
+#endif
 
 	/* Do it! */
 	const float *w = areatex_sample_internal(areatex_diag, x, y);
