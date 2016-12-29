@@ -41,7 +41,7 @@ add_custom_command(
 )
 add_custom_target(smaa_areatex_header SOURCES ${GENSRC})
 
-if(WITH_SMAA_CPP_LIB_STATIC)
+if(WITH_LIBRARY_STATIC)
 	add_library(smaa-static STATIC ${SRC})
 	set_target_properties(smaa-static
 		PROPERTIES
@@ -53,7 +53,7 @@ if(WITH_SMAA_CPP_LIB_STATIC)
 	install(TARGETS smaa-static DESTINATION lib)
 endif()
 
-if(WITH_SMAA_CPP_LIB_SHARED)
+if(WITH_LIBRARY_SHARED)
 	add_library(smaa-shared SHARED ${SRC})
 	set_target_properties(smaa-shared
 		PROPERTIES

@@ -29,50 +29,50 @@ project(smaa-cpp
 set(PROJECT_SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR})
 
 # Options
-option(WITH_SMAA_CPP_LIB_STATIC      "Enable building static library"        ON)
-option(WITH_SMAA_CPP_LIB_SHARED      "Enable building shared library"        OFF)
-option(WITH_SMAA_CPP_SAMPLE          "Enable building sample program"        ON)
-option(WITH_SMAA_CPP_TESTS           "Enable tests running sample program"   ON)
-option(WITH_SMAA_CPP_INSTALL_HEADERS "Force installation of library headers" OFF)
-option(WITH_SMAA_CPP_INSTALL_BIN     "Install command line programs"         OFF)
+option(WITH_LIBRARY_STATIC     "Enable building static library"        ON)
+option(WITH_LIBRARY_SHARED     "Enable building shared library"        OFF)
+option(WITH_EXAMPLE            "Enable building sample program"        ON)
+option(WITH_TESTS              "Enable tests running sample program"   ON)
+option(WITH_INSTALL_HEADERS    "Force installation of library headers" OFF)
+option(WITH_INSTALL_BIN        "Install command line programs"         OFF)
 
-option(WITH_SMAA_CPP_SAMPLE_PREFER_SHLIB "Sample program prefers linking shared library" OFF)
-mark_as_advanced(WITH_SMAA_CPP_SAMPLE_PREFER_SHLIB)
+option(WITH_EXAMPLE_PREFER_SHLIB "Sample program prefers linking shared library" OFF)
+mark_as_advanced(WITH_EXAMPLE_PREFER_SHLIB)
 
 # Dependencies
-if(WITH_SMAA_CPP_TESTS)
-	set(WITH_SMAA_CPP_SAMPLE ON)
+if(WITH_TESTS)
+	set(WITH_EXAMPLE ON)
 endif()
 
-if(WITH_SMAA_CPP_SAMPLE)
+if(WITH_EXAMPLE)
 	find_package(PNG REQUIRED)
 	if(PNG_FOUND)
-		if(NOT WITH_SMAA_CPP_LIB_SHARED AND NOT WITH_SMAA_CPP_LIB_STATIC)
-			set(WITH_SMAA_CPP_LIB_STATIC ON)
+		if(NOT WITH_LIBRARY_SHARED AND NOT WITH_LIBRARY_STATIC)
+			set(WITH_LIBRARY_STATIC ON)
 		endif()
 	else()
-		message(WARNING "PNG library not found, disabling WITH_SMAA_CPP_SAMPLE")
-		set(WITH_SMAA_CPP_SAMPLE OFF)
+		message(WARNING "PNG library not found, disabling WITH_EXAMPLE")
+		set(WITH_EXAMPLE OFF)
 	endif()
 endif()
 
-if(WITH_SMAA_CPP_LIB_STATIC)
-	set(WITH_SMAA_CPP_INSTALL_HEADERS ON)
+if(WITH_LIBRARY_STATIC)
+	set(WITH_INSTALL_HEADERS ON)
 endif()
 
 # Subdirectories
 add_subdirectory(bin)
 
-if(WITH_SMAA_CPP_LIB_STATIC OR WITH_SMAA_CPP_LIB_SHARED)
+if(WITH_LIBRARY_STATIC OR WITH_LIBRARY_SHARED)
 	add_subdirectory(lib)
 	add_subdirectory(include)
 endif()
 
 # Tests
-if (WITH_SMAA_CPP_TESTS)
+if (WITH_TESTS)
 	enable_testing()
 	add_subdirectory(tests)
-	set(WITH_SMAA_CPP_SAMPLE ON)
+	set(WITH_EXAMPLE ON)
 endif()
 
 # Packaging

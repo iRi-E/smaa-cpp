@@ -28,11 +28,11 @@ include_directories(${INCDIR} ${GENDIR})
 
 add_executable(smaa_areatex smaa_areatex.cpp)
 
-if(WITH_SMAA_CPP_INSTALL_BIN)
+if(WITH_INSTALL_BIN)
 	install(TARGETS smaa_areatex RUNTIME DESTINATION bin)
 endif()
 
-if(WITH_SMAA_CPP_SAMPLE)
+if(WITH_EXAMPLE)
 	set(SRC
 		smaa_png.cpp
 		${INCDIR}/smaa.h
@@ -43,14 +43,14 @@ if(WITH_SMAA_CPP_SAMPLE)
 	add_executable(smaa_png  ${SRC})
 	include_directories(${PNG_INCLUDE_DIR})
 
-	if ((WITH_SMAA_CPP_LIB_STATIC AND NOT WITH_SMAA_CPP_LIB_SHARED) OR
-	    (WITH_SMAA_CPP_LIB_STATIC AND WITH_SMAA_CPP_LIB_SHARED AND NOT WITH_SMAA_CPP_SAMPLE_PREFER_SHLIB))
+	if ((WITH_LIBRARY_STATIC AND NOT WITH_LIBRARY_SHARED) OR
+	    (WITH_LIBRARY_STATIC AND WITH_LIBRARY_SHARED AND NOT WITH_EXAMPLE_PREFER_SHLIB))
 		target_link_libraries(smaa_png smaa-static ${PNG_LIBRARY})
 	else()
 		target_link_libraries(smaa_png smaa-shared ${PNG_LIBRARY})
 	endif()
 
-	if(WITH_SMAA_CPP_INSTALL_BIN)
+	if(WITH_INSTALL_BIN)
 		install(TARGETS smaa_png DESTINATION bin)
 	endif()
 endif()
