@@ -235,10 +235,11 @@ Dbl2 AreaOrtho::area(Dbl2 p1, Dbl2 p2, int x)
 	Dbl2 d = p2 - p1;
 	double x1 = (double)x;
 	double x2 = x1 + 1.0;
-	double y1 = p1.y + (x1 - p1.x) * d.y / d.x;
-	double y2 = p1.y + (x2 - p1.x) * d.y / d.x;
 
 	if ((x1 >= p1.x && x1 < p2.x) || (x2 > p1.x && x2 <= p2.x)) { /* inside? */
+		double y1 = p1.y + (x1 - p1.x) * d.y / d.x;
+		double y2 = p1.y + (x2 - p1.x) * d.y / d.x;
+
 		if ((copysign(1.0, y1) == copysign(1.0, y2) ||
 		     fabs(y1) < 1e-4 || fabs(y2) < 1e-4)) { /* trapezoid? */
 			double a = (y1 + y2) / 2.0;
