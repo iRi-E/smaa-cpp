@@ -41,10 +41,6 @@ option(WITH_EXAMPLE_PREFER_SHLIB "Sample program prefers linking shared library"
 mark_as_advanced(WITH_EXAMPLE_PREFER_SHLIB)
 
 # Dependencies
-if(WITH_TESTS)
-	set(WITH_EXAMPLE ON)
-endif()
-
 if(WITH_EXAMPLE)
 	find_package(PNG REQUIRED)
 	if(PNG_FOUND)
@@ -55,6 +51,11 @@ if(WITH_EXAMPLE)
 		message(WARNING "PNG library not found, disabling WITH_EXAMPLE")
 		set(WITH_EXAMPLE OFF)
 	endif()
+endif()
+
+if(WITH_TESTS AND NOT WITH_EXAMPLE)
+	message(WARNING "Running tests needs WITH_EXAMPLE=ON, disabling WITH_TESTS")
+	set(WITH_TESTS OFF)
 endif()
 
 if(WITH_LIBRARY_STATIC)
