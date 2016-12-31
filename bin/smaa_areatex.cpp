@@ -561,53 +561,56 @@ Dbl2 AreaDiag::area(int pattern, Dbl2 p1, Dbl2 p2, int left, Dbl2 offset)
 
 	double x1 = (double)(1 + left);
 	double x2 = x1 + 1.0;
+	double ymid = x1;
+	double xtop = p1.x + (ymid + 1.0 - p1.y) * d.x / d.y;
+	double xmid = p1.x + (ymid       - p1.y) * d.x / d.y;
+	double xbot = p1.x + (ymid - 1.0 - p1.y) * d.x / d.y;
+
 	double y1 = p1.y + (x1 - p1.x) * d.y / d.x;
 	double y2 = p1.y + (x2 - p1.x) * d.y / d.x;
 	double fy1 = y1 - floor(y1);
 	double fy2 = y2 - floor(y2);
-	double xtop = p1.x + (x2 - p1.y) * d.x / d.y;
-	double xmid = p1.x + (x1 - p1.y) * d.x / d.y;
-	double xbot = p1.x + ((x1 - 1.0) - p1.y) * d.x / d.y;
-	int iy1 = (int)floor(y1 - x1), iy2 = (int)floor(y2 - x2);
+	int iy1 = (int)floor(y1 - ymid);
+	int iy2 = (int)floor(y2 - ymid);
 
 	if (iy1 <= -2) {
-		if (iy2 == -2)
+		if (iy2 == -1)
 			return Dbl2(1.0 - (x2 - xbot) * fy2 * 0.5, 0.0);
-		else if (iy2 == -1)
+		else if (iy2 == 0)
 			return Dbl2((xmid + xbot) * 0.5 - x1, (x2 - xmid) * fy2 * 0.5);
-		else if (iy2 >= 0)
+		else if (iy2 >= 1)
 			return Dbl2((xmid + xbot) * 0.5 - x1, x2 -  (xtop + xmid) * 0.5);
-		else /* iy2 < -2 */
+		else /* iy2 < -1 */
 			return Dbl2(1.0, 0.0);
 	}
 	else if (iy1 == -1) {
-		if (iy2 == -2)
+		if (iy2 == -1)
 			return Dbl2(1.0 - (fy1 + fy2) * 0.5, 0.0);
-		else if (iy2 == -1)
+		else if (iy2 == 0)
 			return Dbl2((xmid - x1) * (1.0 - fy1) * 0.5, (x2 - xmid) * fy2 * 0.5);
-		else if (iy2 >= 0)
+		else if (iy2 >= 1)
 			return Dbl2((xmid - x1) * (1.0 - fy1) * 0.5, x2 - (xtop + xmid) * 0.5);
-		else /* iy2 < -2 */
+		else /* iy2 < -1 */
 			return Dbl2(1.0 - (xbot - x1) * fy1 * 0.5, 0.0);
 	}
 	else if (iy1 == 0) {
-		if (iy2 == -2)
+		if (iy2 == -1)
 			return Dbl2((x2 - xmid) * (1.0 - fy2) * 0.5, (xmid - x1) * fy1 * 0.5);
-		else if (iy2 == -1)
+		else if (iy2 == 0)
 			return Dbl2(0.0, (fy1 + fy2) * 0.5);
-		else if (iy2 >= 0)
+		else if (iy2 >= 1)
 			return Dbl2(0.0, 1.0 - (xtop - x1) * (1.0 - fy1) * 0.5);
-		else /* iy2 < -2 */
+		else /* iy2 < -1 */
 			return Dbl2(x2 - (xmid + xbot) * 0.5, (xmid - x1) * fy1 * 0.5);
 	}
 	else { /* iy1 > 0 */
-		if (iy2 == -2)
+		if (iy2 == -1)
 			return Dbl2((x2 - xtop) * (1.0 - fy2) * 0.5, (xtop + xmid) * 0.5 - x1);
-		else if (iy2 == -1)
+		else if (iy2 == 0)
 			return Dbl2(0.0, 1.0 - (x1 - xtop) * (1.0 - fy2) * 0.5);
-		else if (iy2 >= 0)
+		else if (iy2 >= 1)
 			return Dbl2(0.0, 1.0);
-		else /* iy2 < -2 */
+		else /* iy2 < -1 */
 			return Dbl2(x2 - (xmid + xbot) * 0.5, (xtop + xmid) * 0.5 - x1);
 	}
 }
