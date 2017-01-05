@@ -280,7 +280,7 @@ static inline void write_pixel16(png_byte **ptr, float color)
 	*(*ptr)++ = (png_byte)(c & 0xff);
 }
 
-static void process_file(int preset, int detection_type, float threshold, float adaption,
+static void process_file(int preset, int detection_type, float threshold, float adaptation,
 		  int ortho_steps, int diag_steps, int rounding, bool print_info)
 {
 	using namespace SMAA;
@@ -295,8 +295,8 @@ static void process_file(int preset, int detection_type, float threshold, float 
 	PixelShader ps(preset);
 	if (threshold != FLOAT_VAL_NOT_SPECIFIED)
 		ps.setThreshold(threshold);
-	if (adaption != FLOAT_VAL_NOT_SPECIFIED)
-		ps.setLocalContrastAdaptationFactor(adaption);
+	if (adaptation != FLOAT_VAL_NOT_SPECIFIED)
+		ps.setLocalContrastAdaptationFactor(adaptation);
 	if (ortho_steps != INT_VAL_NOT_SPECIFIED)
 		ps.setMaxSearchSteps(ortho_steps);
 	if (diag_steps != INT_VAL_NOT_SPECIFIED) {
@@ -322,7 +322,7 @@ static void process_file(int preset, int detection_type, float threshold, float 
 		fprintf(stderr, "  threshold: %f\n",
 			(detection_type != ED_DEPTH) ? ps.getThreshold() : ps.getDepthThreshold());
 		fprintf(stderr, "  predicated thresholding: off (not supported)\n");
-		fprintf(stderr, "  local contrast adaption factor: %f\n", ps.getLocalContrastAdaptationFactor());
+		fprintf(stderr, "  local contrast adaptation factor: %f\n", ps.getLocalContrastAdaptationFactor());
 		fprintf(stderr, "\n");
 		fprintf(stderr, "maximum search steps: %d\n", ps.getMaxSearchSteps());
 		fprintf(stderr, "diagonal search: %s\n", ps.getEnableDiagDetection() ? "on" : "off");
@@ -473,7 +473,7 @@ int main(int argc, char **argv)
 	int preset = SMAA::CONFIG_PRESET_HIGH;
 	int detection = ED_COLOR;
 	float threshold = FLOAT_VAL_NOT_SPECIFIED;
-	float adaption = FLOAT_VAL_NOT_SPECIFIED;
+	float adaptation = FLOAT_VAL_NOT_SPECIFIED;
 	int ortho_steps = INT_VAL_NOT_SPECIFIED;
 	int diag_steps = INT_VAL_NOT_SPECIFIED;
 	int rounding = INT_VAL_NOT_SPECIFIED;
@@ -521,9 +521,9 @@ int main(int argc, char **argv)
 						}
 					}
 					else if (c == 'a') {
-						adaption = strtof(optarg, &endptr);
-						if (adaption < 0.0f || *endptr != '\0') {
-							fprintf(stderr, "Invalid contrast adaption factor: %s\n", optarg);
+						adaptation = strtof(optarg, &endptr);
+						if (adaptation < 0.0f || *endptr != '\0') {
+							fprintf(stderr, "Invalid contrast adaptation factor: %s\n", optarg);
 							status = 1;
 						}
 					}
@@ -590,7 +590,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "  -e DETECTTYPE Specify edge detection type                   [luma|color|depth]\n");
 		fprintf(stderr, "                (Depth edge detection uses alpha channel as depths)\n");
 		fprintf(stderr, "  -t THRESHOLD  Specify threshold of edge detection                   [0.0, 5.0]\n");
-		fprintf(stderr, "  -a FACTOR     Specify local contrast adaption factor                [0.0, inf]\n");
+		fprintf(stderr, "  -a FACTOR     Specify local contrast adaptation factor              [0.0, inf]\n");
 		fprintf(stderr, "  -s STEPS      Specify maximum search steps                            [1, 362]\n");
 		fprintf(stderr, "  -d STEPS      Specify maximum diagonal search steps\n");
 		fprintf(stderr, "                (-1 means disable diagonal processing)             -1 or [1, 19]\n");
@@ -605,7 +605,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "smaa_png version %s\n\n", SMAA::VERSION);
 
 	read_png_file(infile, verbose);
-	process_file(preset, detection, threshold, adaption, ortho_steps, diag_steps, rounding, verbose);
+	process_file(preset, detection, threshold, adaptation, ortho_steps, diag_steps, rounding, verbose);
 	write_png_file(outfile, verbose);
 
 	if (verbose)
