@@ -42,7 +42,7 @@ mark_as_advanced(WITH_EXAMPLE_PREFER_SHLIB)
 
 # Dependencies
 if(WITH_EXAMPLE)
-	find_package(PNG REQUIRED)
+	find_package(PNG)
 	if(PNG_FOUND)
 		if(NOT WITH_LIBRARY_SHARED AND NOT WITH_LIBRARY_STATIC)
 			set(WITH_LIBRARY_STATIC ON)
