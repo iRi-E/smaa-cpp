@@ -9,7 +9,6 @@
 
 /* smaa_png.cpp */
 
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -480,96 +479,105 @@ int main(int argc, char **argv)
 	int rounding = INT_VAL_NOT_SPECIFIED;
 	bool verbose = false;
 	bool help = false;
+	char *infile = NULL;
+	char *outfile = NULL;
 	int status = 0;
-	int chr;
-	char *endptr;
 
-	opterr = 0;
-	while ((chr = getopt(argc, argv, "p:e:t:a:s:d:c:vh")) != -1) {
-		switch(chr) {
-			case 'p':
-				preset = rassoc(optarg, config_presets);
-				if (preset == END_OF_LIST) {
-					fprintf(stderr, "Unknown preset name: %s\n", optarg);
-					status = 1;
+	for (int i = 1; i < argc; i++) {
+		char *ptr = argv[i];
+		if (*ptr++ == '-' && *ptr != '\0') {
+			char c, *optarg, *endptr;
+			while ((c = *ptr++) != '\0') {
+				if (strchr("petasdc", c)) {
+					if (*ptr != '\0')
+						optarg = ptr;
+					else if (++i < argc)
+						optarg = argv[i];
+					else {
+						fprintf(stderr, "Option -%c requires an argument.\n", c);
+						status = 1;
+						break;
+					}
+
+					if (c == 'p') {
+						preset = rassoc(optarg, config_presets);
+						if (preset == END_OF_LIST) {
+							fprintf(stderr, "Unknown preset name: %s\n", optarg);
+							status = 1;
+						}
+					}
+					else if (c == 'e') {
+						detection = rassoc(optarg, edge_detection_types);
+						if (detection == END_OF_LIST) {
+							fprintf(stderr, "Unknown detection type: %s\n", optarg);
+							status = 1;
+						}
+					}
+					else if (c == 't') {
+						threshold = strtof(optarg, &endptr);
+						if (threshold < 0.0f || *endptr != '\0') {
+							fprintf(stderr, "Invalid threshold: %s\n", optarg);
+							status = 1;
+						}
+					}
+					else if (c == 'a') {
+						adaption = strtof(optarg, &endptr);
+						if (adaption < 0.0f || *endptr != '\0') {
+							fprintf(stderr, "Invalid contrast adaption factor: %s\n", optarg);
+							status = 1;
+						}
+					}
+					else if (c == 's') {
+						ortho_steps = strtol(optarg, &endptr, 0);
+						if (ortho_steps < 0 || *endptr != '\0') {
+							fprintf(stderr, "Invalid maximum search steps: %s\n", optarg);
+							status = 1;
+						}
+					}
+					else if (c == 'd') {
+						diag_steps = strtol(optarg, &endptr, 0);
+						if (diag_steps < -1 || *endptr != '\0') { /* -1 means disable the processing */
+							fprintf(stderr, "Invalid maximum diagonal search steps: %s\n", optarg);
+							status = 1;
+						}
+					}
+					else if (c == 'c') {
+						rounding = strtol(optarg, &endptr, 0);
+						if (rounding < -1 || *endptr != '\0') { /* -1 means disable the processing */
+							fprintf(stderr, "Invalid corner rounding: %s\n", optarg);
+							status = 1;
+						}
+					}
+
+					break;
 				}
-				break;
-			case 'e':
-				detection = rassoc(optarg, edge_detection_types);
-				if (detection == END_OF_LIST) {
-					fprintf(stderr, "Unknown detection type: %s\n", optarg);
+				else if (c == 'v')
+					verbose = true;
+				else if (c == 'h')
+					help = true;
+				else {
+					fprintf(stderr, "Unknown option: -%c\n", c);
 					status = 1;
+					break;
 				}
-				break;
-			case 't':
-				threshold = strtof(optarg, &endptr);
-				if (threshold < 0.0f || *endptr != '\0') {
-					fprintf(stderr, "Invalid threshold: %s\n", optarg);
-					status = 1;
-				}
-				break;
-			case 'a':
-				adaption = strtof(optarg, &endptr);
-				if (adaption < 0.0f || *endptr != '\0') {
-					fprintf(stderr, "Invalid contrast adaption factor: %s\n", optarg);
-					status = 1;
-				}
-				break;
-			case 's':
-				ortho_steps = strtol(optarg, &endptr, 0);
-				if (ortho_steps < 0 || *endptr != '\0') {
-					fprintf(stderr, "Invalid maximum search steps: %s\n", optarg);
-					status = 1;
-				}
-				break;
-			case 'd':
-				diag_steps = strtol(optarg, &endptr, 0);
-				if (diag_steps < -1 || *endptr != '\0') { /* -1 is allowed, means disable the processing */
-					fprintf(stderr, "Invalid maximum diagonal search steps: %s\n", optarg);
-					status = 1;
-				}
-				break;
-			case 'c':
-				rounding = strtol(optarg, &endptr, 0);
-				if (rounding < -1 || *endptr != '\0') { /* -1 is allowed, means disable the processing */
-					fprintf(stderr, "Invalid corner rounding: %s\n", optarg);
-					status = 1;
-				}
-				break;
-			case 'v':
-				verbose = true;
-				break;
-			case 'h':
-				help = true;
-				break;
-			case '?':
-				if (strchr("petasdc", optopt))
-					fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-				else
-					fprintf(stderr, "Unknown option: -%c\n", optopt);
-				status = 1;
-				break;
-			default:
-				fprintf(stderr, "Invalid command line argument\n");
-				status = 1;
-				break;
+			}
 		}
+		else if (outfile) {
+			fprintf(stderr, "Too much file names: %s, %s, %s\n", infile, outfile, argv[i]);
+			status = 1;
+		}
+		else if (infile)
+			outfile = argv[i];
+		else
+			infile = argv[i];
 
 		if (status != 0)
 			break;
 	}
 
-	if (status == 0 && !help) {
-		if (optind < argc - 2) {
-			fprintf(stderr, "Too much file names were specified.\n");
-			status = 1;
-		}
-		else if (optind > argc - 2) {
-			fprintf(stderr, "Two file names are required.\n");
-			status = 1;
-		}
-		else
-			status = check_png_filename(argv[argc - 2]) | check_png_filename(argv[argc - 1]);
+	if (status == 0 && !help && !outfile) {
+		fprintf(stderr, "Two file names are required.\n");
+		status = 1;
 	}
 
 	if (status != 0 || help) {
@@ -596,9 +604,9 @@ int main(int argc, char **argv)
 	if (verbose)
 		fprintf(stderr, "smaa_png version %s\n\n", SMAA::VERSION);
 
-	read_png_file(argv[argc - 2], verbose);
+	read_png_file(infile, verbose);
 	process_file(preset, detection, threshold, adaption, ortho_steps, diag_steps, rounding, verbose);
-	write_png_file(argv[argc - 1], verbose);
+	write_png_file(outfile, verbose);
 
 	if (verbose)
 		fprintf(stderr, "\ndone.\n");
