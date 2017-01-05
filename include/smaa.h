@@ -203,6 +203,8 @@ public:
 	 * This allows to eliminate spurious crossing edges, and is based on the fact
 	 * that, if there is too much contrast in a direction, that will hide
 	 * perceptually contrast in the other neighbors.
+	 *
+	 * Range: [1.0, inf]
 	 */
 	inline void setLocalContrastAdaptationFactor(float factor) { m_local_contrast_adaptation_factor = factor; }
 	inline float getLocalContrastAdaptationFactor() { return m_local_contrast_adaptation_factor; }

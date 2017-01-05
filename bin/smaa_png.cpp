@@ -590,7 +590,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "  -e DETECTTYPE Specify edge detection type                   [luma|color|depth]\n");
 		fprintf(stderr, "                (Depth edge detection uses alpha channel as depths)\n");
 		fprintf(stderr, "  -t THRESHOLD  Specify threshold of edge detection                   [0.0, 5.0]\n");
-		fprintf(stderr, "  -a FACTOR     Specify local contrast adaptation factor              [0.0, inf]\n");
+		fprintf(stderr, "  -a FACTOR     Specify local contrast adaptation factor              [1.0, inf]\n");
 		fprintf(stderr, "  -s STEPS      Specify maximum search steps                            [1, 362]\n");
 		fprintf(stderr, "  -d STEPS      Specify maximum diagonal search steps\n");
 		fprintf(stderr, "                (-1 means disable diagonal processing)             -1 or [1, 19]\n");
