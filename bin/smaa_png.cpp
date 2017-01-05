@@ -591,9 +591,9 @@ int main(int argc, char **argv)
 		fprintf(stderr, "                (Depth edge detection uses alpha channel as depths)\n");
 		fprintf(stderr, "  -t THRESHOLD  Specify threshold of edge detection                   [0.0, 5.0]\n");
 		fprintf(stderr, "  -a FACTOR     Specify local contrast adaption factor                [0.0, inf]\n");
-		fprintf(stderr, "  -s STEPS      Specify maximum search steps                            [0, 104]\n");
+		fprintf(stderr, "  -s STEPS      Specify maximum search steps                            [1, 362]\n");
 		fprintf(stderr, "  -d STEPS      Specify maximum diagonal search steps\n");
-		fprintf(stderr, "                (-1 means disable diagonal processing)             -1 or [0, 18]\n");
+		fprintf(stderr, "                (-1 means disable diagonal processing)             -1 or [1, 19]\n");
 		fprintf(stderr, "  -c ROUNDING   Specify corner rounding\n");
 		fprintf(stderr, "                (-1 means disable corner processing)              -1 or [0, 100]\n");
 		fprintf(stderr, "  -v            Print details of what is being done\n");
