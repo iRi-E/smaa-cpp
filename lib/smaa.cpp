@@ -268,15 +268,23 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	/* Calculate the maximum delta in the direct neighborhood: */
 	float maxDelta = fmaxf(fmaxf(Dleft, Dright), fmaxf(Dtop, Dbottom));
 
+	/* Calculate luma used for both left and top edges: */
+	colorImage->getPixel(x - 1, y - 1, color);
+	float Llefttop = rgb2bw(color);
+
 	/* Left edge */
 	if (edges[0] != 0.0f) {
-		/* Calculate left-left delta: */
+		/* Calculate deltas around the left pixel: */
 		colorImage->getPixel(x - 2, y, color);
 		float Lleftleft = rgb2bw(color);
-		float Dleftleft = fabsf(Lleft - Lleftleft);
+		colorImage->getPixel(x - 1, y + 1, color);
+		float Lleftbottom = rgb2bw(color);
+		float Dleftleft   = fabsf(Lleft - Lleftleft);
+		float Dlefttop    = fabsf(Lleft - Llefttop);
+		float Dleftbottom = fabsf(Lleft - Lleftbottom);
 
 		/* Calculate the final maximum delta: */
-		maxDelta = fmaxf(maxDelta, Dleftleft);
+		maxDelta = fmaxf(maxDelta, fmaxf(Dleftleft, fmaxf(Dlefttop, Dleftbottom)));
 
 		/* Local contrast adaptation: */
 		if (maxDelta > m_local_contrast_adaptation_factor * Dleft)
@@ -285,13 +293,17 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 
 	/* Top edge */
 	if (edges[1] != 0.0f) {
-		/* Calculate top-top delta: */
+		/* Calculate deltas around the top pixel: */
 		colorImage->getPixel(x, y - 2, color);
 		float Ltoptop = rgb2bw(color);
-		float Dtoptop = fabsf(Ltop - Ltoptop);
+		colorImage->getPixel(x + 1, y - 1, color);
+		float Ltopright = rgb2bw(color);
+		float Dtoptop   = fabsf(Ltop - Ltoptop);
+		float Dtopleft  = fabsf(Ltop - Llefttop);
+		float Dtopright = fabsf(Ltop - Ltopright);
 
 		/* Calculate the final maximum delta: */
-		maxDelta = fmaxf(maxDelta, Dtoptop);
+		maxDelta = fmaxf(maxDelta, fmaxf(Dtoptop, fmaxf(Dtopleft, Dtopright)));
 
 		/* Local contrast adaptation: */
 		if (maxDelta > m_local_contrast_adaptation_factor * Dtop)
@@ -354,15 +366,22 @@ void PixelShader::colorEdgeDetection(int x, int y,
 	/* Calculate the maximum delta in the direct neighborhood: */
 	float maxDelta = fmaxf(fmaxf(Dleft, Dright), fmaxf(Dtop, Dbottom));
 
+	/* Get color used for both left and top edges: */
+	float Clefttop[4];
+	colorImage->getPixel(x - 1, y - 1, Clefttop);
+
 	/* Left edge */
 	if (edges[0] != 0.0f) {
-		/* Calculate left-left delta: */
-		float Cleftleft[4];
+		/* Calculate deltas around the left pixel: */
+		float Cleftleft[4], Cleftbottom[4];
 		colorImage->getPixel(x - 2, y, Cleftleft);
-		float Dleftleft = color_delta(Cleft, Cleftleft);
+		colorImage->getPixel(x - 1, y + 1, Cleftbottom);
+		float Dleftleft   = color_delta(Cleft, Cleftleft);
+		float Dlefttop    = color_delta(Cleft, Clefttop);
+		float Dleftbottom = color_delta(Cleft, Cleftbottom);
 
 		/* Calculate the final maximum delta: */
-		maxDelta = fmaxf(maxDelta, Dleftleft);
+		maxDelta = fmaxf(maxDelta, fmaxf(Dleftleft, fmaxf(Dlefttop, Dleftbottom)));
 
 		/* Local contrast adaptation: */
 		if (maxDelta > m_local_contrast_adaptation_factor * Dleft)
@@ -371,13 +390,16 @@ void PixelShader::colorEdgeDetection(int x, int y,
 
 	/* Top edge */
 	if (edges[1] != 0.0f) {
-		/* Calculate top-top delta: */
-		float Ctoptop[4];
+		/* Calculate deltas around the top pixel: */
+		float Ctoptop[4], Ctopright[4];
 		colorImage->getPixel(x, y - 2, Ctoptop);
-		float Dtoptop = color_delta(Ctop, Ctoptop);
+		colorImage->getPixel(x + 1, y - 1, Ctopright);
+		float Dtoptop   = color_delta(Ctop, Ctoptop);
+		float Dtopleft  = color_delta(Ctop, Clefttop);
+		float Dtopright = color_delta(Ctop, Ctopright);
 
 		/* Calculate the final maximum delta: */
-		maxDelta = fmaxf(maxDelta, Dtoptop);
+		maxDelta = fmaxf(maxDelta, fmaxf(Dtoptop, fmaxf(Dtopleft, Dtopright)));
 
 		/* Local contrast adaptation: */
 		if (maxDelta > m_local_contrast_adaptation_factor * Dtop)
