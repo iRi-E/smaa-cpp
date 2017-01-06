@@ -21,9 +21,16 @@
 #
 cmake_minimum_required(VERSION 3.0)
 
-set(IMAGES circle square monkey mizuki suzu pattern pattern2)
 set(IMGDIR ${CMAKE_SOURCE_DIR}/tests)
 set(TESTDIR ${CMAKE_BINARY_DIR}/tests)
+
+file(GLOB FILES *_aa.png)
+unset(IMAGES)
+foreach(FILE IN LISTS FILES)
+	get_filename_component(FILE ${FILE} NAME)
+	string(REGEX REPLACE "_aa\\.png$" "" IMAGE ${FILE})
+	list(APPEND IMAGES ${IMAGE})
+endforeach()
 
 foreach(IMAGE IN LISTS IMAGES)
 	add_test(
