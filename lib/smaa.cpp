@@ -228,8 +228,7 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 				    ImageReader *predicationImage,
 				    /* out */ float edges[4])
 {
-	float threshold[2];
-	float color[4];
+	float threshold[2], color[4];
 
 	/* Calculate the threshold: */
 	if (m_enable_predication && predicationImage)
@@ -239,7 +238,7 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 
 	/* Calculate lumas and deltas: */
 	colorImage->getPixel(x, y, color);
-	float L = rgb2bw(color);
+	float L     = rgb2bw(color);
 	colorImage->getPixel(x - 1, y, color);
 	float Lleft = rgb2bw(color);
 	colorImage->getPixel(x, y - 1, color);
@@ -259,7 +258,7 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 
 	/* Calculate right and bottom deltas: */
 	colorImage->getPixel(x + 1, y, color);
-	float Lright = rgb2bw(color);
+	float Lright  = rgb2bw(color);
 	colorImage->getPixel(x, y + 1, color);
 	float Lbottom = rgb2bw(color);
 	float Dright  = fabsf(L - Lright);
@@ -276,7 +275,7 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	if (edges[0] != 0.0f) {
 		/* Calculate deltas around the left pixel: */
 		colorImage->getPixel(x - 2, y, color);
-		float Lleftleft = rgb2bw(color);
+		float Lleftleft   = rgb2bw(color);
 		colorImage->getPixel(x - 1, y + 1, color);
 		float Lleftbottom = rgb2bw(color);
 		float Dleftleft   = fabsf(Lleft - Lleftleft);
@@ -295,7 +294,7 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	if (edges[1] != 0.0f) {
 		/* Calculate deltas around the top pixel: */
 		colorImage->getPixel(x, y - 2, color);
-		float Ltoptop = rgb2bw(color);
+		float Ltoptop   = rgb2bw(color);
 		colorImage->getPixel(x + 1, y - 1, color);
 		float Ltopright = rgb2bw(color);
 		float Dtoptop   = fabsf(Ltop - Ltoptop);
