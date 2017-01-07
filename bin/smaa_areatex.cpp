@@ -21,7 +21,7 @@
  */
 
 /*
- * smaa_areatex.cpp  version 0.2.0
+ * smaa_areatex.cpp  version 0.3.0
  *
  * This is a part of smaa-cpp that is an implementation of
  * Enhanced Subpixel Morphological Antialiasing (SMAA) written in C++.
