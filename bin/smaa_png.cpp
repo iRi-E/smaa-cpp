@@ -1,6 +1,6 @@
 /*
  * Copyright 2002-2011 Guillaume Cottenceau and contributors.
- *           2014-2016 IRIE Shinsuke
+ *           2014-2017 IRIE Shinsuke
  *
  * This software may be freely redistributed under the terms
  * of the X11 license.
