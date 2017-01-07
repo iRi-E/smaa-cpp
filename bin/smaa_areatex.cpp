@@ -493,8 +493,9 @@ Dbl2 AreaOrtho::calculate(int pattern, int left, int right, double offset)
 class AreaDiag {
 	double m_data[SUBSAMPLES_DIAG][TEX_SIZE_DIAG][TEX_SIZE_DIAG][2];
 	bool m_numeric;
+	bool m_orig_u;
 public:
-	AreaDiag(bool numeric) : m_numeric(numeric) {}
+	AreaDiag(bool numeric, bool orig_u) : m_numeric(numeric), m_orig_u(orig_u) {}
 
 	double *getData() { return (double *)&m_data; }
 	Dbl2 getPixel(int offset_index, Int2 coords) {
@@ -690,7 +691,12 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   |
 			 *   |
 			 */
-			return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			if (m_orig_u)
+				return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			else if (left < right)
+				return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+			else
+				return area(pattern, Dbl2(0.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
 			break;
 		}
 		case EDGESDIAG_HORZ_NONE:
@@ -828,7 +834,12 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *
 			 *
 			 */
-			return area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+			if (m_orig_u)
+				return area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+			else if (left <= right)
+				return area(pattern, Dbl2(1.0, 1.0), Dbl2(2.0, 1.0) + Dbl2(d), left, offset);
+			else
+				return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
 			break;
 		}
 		case EDGESDIAG_BOTH_VERT:
@@ -1038,6 +1049,7 @@ int main(int argc, char **argv)
 	bool tga = false;
 	bool compat = false;
 	bool numeric = false;
+	bool orig_u = false;
 	bool help = false;
 	char *outfile = NULL;
 	int status = 0;
@@ -1057,6 +1069,8 @@ int main(int argc, char **argv)
 					compat = true;
 				else if (c == 'n')
 					numeric = true;
+				else if (c == 'u')
+					orig_u = true;
 				else if (c == 'h')
 					help = true;
 				else {
@@ -1090,18 +1104,19 @@ int main(int argc, char **argv)
 		fprintf(stderr, "    -t    Write TGA image instead of C/C++ source\n");
 		fprintf(stderr, "    -c    Generate compatible orthogonal data that subtexture size is 16\n");
 		fprintf(stderr, "    -n    Numerically calculate diagonal data using brute force sampling\n");
+		fprintf(stderr, "    -u    Process diagonal U patterns in older way (Straighten U patterns)\n");
 		fprintf(stderr, "    -h    Print this help and exit\n");
 		fprintf(stderr, "File name OUTFILE usually should have an extension such as .c, .h, or .tga,\n");
 		fprintf(stderr, "except for a special name '-' that means standard output.\n\n");
 		fprintf(stderr, "Example:\n");
 		fprintf(stderr, "  Generate TGA file exactly same as AreaTexDX10.tga bundled with the\n");
 		fprintf(stderr, "  original implementation:\n\n");
-		fprintf(stderr, "  $ smaa_areatex -stcn AreaTexDX10.tga\n\n");
+		fprintf(stderr, "  $ smaa_areatex -stcnu AreaTexDX10.tga\n\n");
 		return status;
 	}
 
 	AreaOrtho *ortho = new AreaOrtho(compat);
-	AreaDiag *diag = new AreaDiag(numeric);
+	AreaDiag *diag = new AreaDiag(numeric, orig_u);
 
 	/* Calculate areatex data */
 	for (int i = 0; i < (subsampling ? SUBSAMPLES_ORTHO : 1); i++)
