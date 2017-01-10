@@ -226,7 +226,7 @@ private:
 Dbl2 AreaOrtho::smootharea(double d, Dbl2 a1, Dbl2 a2)
 {
 	Dbl2 b1 = (a1 * Dbl2(2.0)).apply(sqrt) * Dbl2(0.5);
-	Dbl2 b2 = (a2 * Dbl2(2.0)).apply(sqrt) * Dbl2(0.5);;
+	Dbl2 b2 = (a2 * Dbl2(2.0)).apply(sqrt) * Dbl2(0.5);
 	double p = saturate(d / (double)SMOOTH_MAX_DISTANCE);
 	return lerp(b1, a1, p) + lerp(b2, a2, p);
 }
