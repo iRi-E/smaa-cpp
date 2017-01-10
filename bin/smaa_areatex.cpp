@@ -713,9 +713,9 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			if (m_orig_u)
 				return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
 			else if (left < right)
-				return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+				return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d) - offset, left, offset);
 			else
-				return area(pattern, Dbl2(0.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+				return area(pattern, Dbl2(0.0, 0.0) - offset, Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
 			break;
 		}
 		case EDGESDIAG_HORZ_NONE:
@@ -856,9 +856,9 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			if (m_orig_u)
 				return area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
 			else if (left <= right)
-				return area(pattern, Dbl2(1.0, 1.0), Dbl2(2.0, 1.0) + Dbl2(d), left, offset);
+				return area(pattern, Dbl2(1.0, 1.0), Dbl2(2.0, 1.0) + Dbl2(d) - offset, left, offset);
 			else
-				return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+				return area(pattern, Dbl2(1.0, 0.0) - offset, Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
 			break;
 		}
 		case EDGESDIAG_BOTH_VERT:
