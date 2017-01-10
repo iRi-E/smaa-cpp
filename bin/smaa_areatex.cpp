@@ -75,6 +75,7 @@ public:
 	Dbl2 operator * (Dbl2 other) { return Dbl2(x * other.x, y * other.y); }
 	Dbl2 operator / (Dbl2 other) { return Dbl2(x / other.x, y / other.y); }
 	Dbl2 operator += (Dbl2 other) { return Dbl2(x += other.x, y += other.y); }
+	bool operator == (Dbl2 other) { return (x == other.x && y == other.y); }
 };
 
 Int2::operator Dbl2() { return Dbl2((double)x, (double)y); }
@@ -530,7 +531,7 @@ private:
 	}
 
 	double area1(Dbl2 p1, Dbl2 p2, Int2 p);
-	Dbl2 area(int pattern, Dbl2 p1, Dbl2 p2, int left, Dbl2 offset);
+	Dbl2 area(Dbl2 p1, Dbl2 p2, int left);
 	Dbl2 calculate(int pattern, int left, int right, Dbl2 offset);
 };
 
@@ -539,7 +540,7 @@ private:
 /* (quick and dirty solution, but it works) */
 double AreaDiag::area1(Dbl2 p1, Dbl2 p2, Int2 p)
 {
-	if (p1.x == p2.x && p1.y == p2.y)
+	if (p1 == p2)
 		return 1.0;
 
 	double xm = (p1.x + p2.x) / 2.0, ym = (p1.y + p2.y) / 2.0;
@@ -548,9 +549,9 @@ double AreaDiag::area1(Dbl2 p1, Dbl2 p2, Int2 p)
 	int count = 0;
 
 	for (int ix = 0; ix < SAMPLES_DIAG; ix++) {
-		double x = p.x + (double)ix / (double)(SAMPLES_DIAG - 1);
+		double x = (double)p.x + (double)ix / (double)(SAMPLES_DIAG - 1);
 		for (int iy = 0; iy < SAMPLES_DIAG; iy++) {
-			double y = p.y + (double)iy / (double)(SAMPLES_DIAG - 1);
+			double y = (double)p.y + (double)iy / (double)(SAMPLES_DIAG - 1);
 			if (a * (x - xm) + b * (y - ym) > 0.0) /* inside? */
 				count++;
 		}
@@ -560,14 +561,8 @@ double AreaDiag::area1(Dbl2 p1, Dbl2 p2, Int2 p)
 
 /* Calculates the area under the line p1->p2: */
 /* (includes the pixel and its opposite) */
-Dbl2 AreaDiag::area(int pattern, Dbl2 p1, Dbl2 p2, int left, Dbl2 offset)
+Dbl2 AreaDiag::area(Dbl2 p1, Dbl2 p2, int left)
 {
-	Int2 e = edgesdiag[pattern];
-	if (e.x > 0)
-		p1 += offset;
-	if (e.y > 0)
-		p2 += offset;
-
 	if (m_numeric) {
 		double a1 = area1(p1, p2, Int2(1, 0) + Int2(left));
 		double a2 = area1(p1, p2, Int2(1, 1) + Int2(left));
@@ -662,8 +657,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   ´
 			 *
 			 */
-			a1 = area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset); /* 1st possibility */
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset); /* 2nd possibility */
+			a1 = area(Dbl2(1.0, 1.0), Dbl2(1.0, 1.0) + Dbl2(d), left); /* 1st possibility */
+			a2 = area(Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left); /* 2nd possibility */
 			return (a1 + a2) / Dbl2(2.0); /* Blend them */
 			break;
 		}
@@ -678,8 +673,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   |
 			 *   |
 			 */
-			a1 = area(pattern, Dbl2(1.0, 0.0), Dbl2(0.0, 0.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(1.0, 0.0) + offset, Dbl2(0.0, 0.0) + Dbl2(d), left);
+			a2 = area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d), left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -694,8 +689,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   ´
 			 *
 			 */
-			a1 = area(pattern, Dbl2(0.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(0.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
+			a2 = area(Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -711,11 +706,11 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   |
 			 */
 			if (m_orig_u)
-				return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+				return area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			else if (left < right)
-				return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d) - offset, left, offset);
+				return area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d), left);
 			else
-				return area(pattern, Dbl2(0.0, 0.0) - offset, Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+				return area(Dbl2(0.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			break;
 		}
 		case EDGESDIAG_HORZ_NONE:
@@ -729,8 +724,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *
 			 *
 			 */
-			a1 = area(pattern, Dbl2(1.0, 1.0), Dbl2(0.0, 0.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(1.0, 1.0) + offset, Dbl2(0.0, 0.0) + Dbl2(d), left);
+			a2 = area(Dbl2(1.0, 1.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d), left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -745,8 +740,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   |
 			 *   |
 			 */
-			a1 = area(pattern, Dbl2(1.0, 1.0), Dbl2(0.0, 0.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(1.0, 1.0) + offset, Dbl2(0.0, 0.0) + Dbl2(d), left);
+			a2 = area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d), left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -761,7 +756,7 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *
 			 *
 			 */
-			return area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			return area(Dbl2(1.0, 1.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			break;
 		}
 		case EDGESDIAG_BOTH_HORZ:
@@ -775,8 +770,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   |
 			 *   |
 			 */
-			a1 = area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(1.0, 1.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
+			a2 = area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -791,8 +786,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   ´
 			 *
 			 */
-			a1 = area(pattern, Dbl2(0.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(0.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
+			a2 = area(Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -807,7 +802,7 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   |
 			 *   |
 			 */
-			return area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+			return area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
 			break;
 		}
 		case EDGESDIAG_NONE_BOTH:
@@ -821,8 +816,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   ´
 			 *
 			 */
-			a1 = area(pattern, Dbl2(0.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(0.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
+			a2 = area(Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -837,8 +832,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   |
 			 *   |
 			 */
-			a1 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
+			a2 = area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -854,11 +849,11 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *
 			 */
 			if (m_orig_u)
-				return area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+				return area(Dbl2(1.0, 1.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
 			else if (left <= right)
-				return area(pattern, Dbl2(1.0, 1.0), Dbl2(2.0, 1.0) + Dbl2(d) - offset, left, offset);
+				return area(Dbl2(1.0, 1.0) + offset, Dbl2(2.0, 1.0) + Dbl2(d), left);
 			else
-				return area(pattern, Dbl2(1.0, 0.0) - offset, Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+				return area(Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
 			break;
 		}
 		case EDGESDIAG_BOTH_VERT:
@@ -872,8 +867,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   |
 			 *   |
 			 */
-			a1 = area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(1.0, 1.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
+			a2 = area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -888,8 +883,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *
 			 *
 			 */
-			a1 = area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(1.0, 1.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
+			a2 = area(Dbl2(1.0, 1.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
@@ -904,8 +899,8 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 *   |
 			 *   |
 			 */
-			a1 = area(pattern, Dbl2(1.0, 1.0), Dbl2(1.0, 1.0) + Dbl2(d), left, offset);
-			a2 = area(pattern, Dbl2(1.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d), left, offset);
+			a1 = area(Dbl2(1.0, 1.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
+			a2 = area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			return (a1 + a2) / Dbl2(2.0);
 			break;
 		}
