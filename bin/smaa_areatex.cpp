@@ -199,8 +199,9 @@ static double saturate(double x)
 class AreaOrtho {
 	double m_data[SUBSAMPLES_ORTHO][TEX_SIZE_ORTHO][TEX_SIZE_ORTHO][2];
 	bool m_compat;
+	bool m_orig_u;
 public:
-	AreaOrtho(bool compat) : m_compat(compat) {}
+	AreaOrtho(bool compat, bool orig_u) : m_compat(compat), m_orig_u(orig_u) {}
 
 	double *getData() { return (double *)&m_data; }
 	Dbl2 getPixel(int offset_index, Int2 coords) {
@@ -216,6 +217,7 @@ private:
 	}
 
 	Dbl2 smootharea(double d, Dbl2 a1, Dbl2 a2);
+	Dbl2 makequad(int x, double d, double o);
 	Dbl2 area(Dbl2 p1, Dbl2 p2, int x);
 	Dbl2 calculate(int pattern, int left, int right, double offset);
 };
@@ -227,6 +229,15 @@ Dbl2 AreaOrtho::smootharea(double d, Dbl2 a1, Dbl2 a2)
 	Dbl2 b2 = (a2 * Dbl2(2.0)).apply(sqrt) * Dbl2(0.5);;
 	double p = saturate(d / (double)SMOOTH_MAX_DISTANCE);
 	return lerp(b1, a1, p) + lerp(b2, a2, p);
+}
+
+/* Smoothing u-patterns by quadratic function: */
+Dbl2 AreaOrtho::makequad(int x, double d, double o)
+{
+	double r = (double)x;
+
+	/* fmin() below is a trick to smooth tiny u-patterns: */
+	return Dbl2(r, (1.0 - fmin(4.0, d) * r * (d - r) / (d * d)) * o);
 }
 
 /* Calculates the area under the line p1->p2, for the pixel x..x+1: */
@@ -329,9 +340,13 @@ Dbl2 AreaOrtho::calculate(int pattern, int left, int right, double offset)
 			 *   .------.
 			 *   |      |
 			 */
-			a1 = area(Dbl2(0.0, o2), Dbl2(d / 2.0, 0.0), left);
-			a2 = area(Dbl2(d / 2.0, 0.0), Dbl2(d, o2), left);
-			return smootharea(d, a1, a2);
+			if (m_orig_u) {
+				a1 = area(Dbl2(0.0, o2), Dbl2(d / 2.0, 0.0), left);
+				a2 = area(Dbl2(d / 2.0, 0.0), Dbl2(d, o2), left);
+				return smootharea(d, a1, a2);
+			}
+			else
+				return area(makequad(left, d, o2), makequad(left + 1, d, o2), left);
 			break;
 		}
 		case EDGESORTHO_NEGA_NONE:
@@ -447,9 +462,13 @@ Dbl2 AreaOrtho::calculate(int pattern, int left, int right, double offset)
 			 *   `------´
 			 *
 			 */
-			a1 = area(Dbl2(0.0, o1), Dbl2(d / 2.0, 0.0), left);
-			a2 = area(Dbl2(d / 2.0, 0.0), Dbl2(d, o1), left);
-			return smootharea(d, a1, a2);
+			if (m_orig_u) {
+				a1 = area(Dbl2(0.0, o1), Dbl2(d / 2.0, 0.0), left);
+				a2 = area(Dbl2(d / 2.0, 0.0), Dbl2(d, o1), left);
+				return smootharea(d, a1, a2);
+			}
+			else
+				return area(makequad(left, d, o1), makequad(left + 1, d, o1), left);
 			break;
 		}
 		case EDGESORTHO_BOTH_NEGA:
@@ -1104,7 +1123,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "    -t    Write TGA image instead of C/C++ source\n");
 		fprintf(stderr, "    -c    Generate compatible orthogonal data that subtexture size is 16\n");
 		fprintf(stderr, "    -n    Numerically calculate diagonal data using brute force sampling\n");
-		fprintf(stderr, "    -u    Process diagonal U patterns in older way (Straighten U patterns)\n");
+		fprintf(stderr, "    -u    Process orthogonal / diagonal U patterns in older ways\n");
 		fprintf(stderr, "    -h    Print this help and exit\n");
 		fprintf(stderr, "File name OUTFILE usually should have an extension such as .c, .h, or .tga,\n");
 		fprintf(stderr, "except for a special name '-' that means standard output.\n\n");
@@ -1115,7 +1134,7 @@ int main(int argc, char **argv)
 		return status;
 	}
 
-	AreaOrtho *ortho = new AreaOrtho(compat);
+	AreaOrtho *ortho = new AreaOrtho(compat, orig_u);
 	AreaDiag *diag = new AreaDiag(numeric, orig_u);
 
 	/* Calculate areatex data */
