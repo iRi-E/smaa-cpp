@@ -532,6 +532,7 @@ private:
 
 	double area1(Dbl2 p1, Dbl2 p2, Int2 p);
 	Dbl2 area(Dbl2 p1, Dbl2 p2, int left);
+	Dbl2 areaTriangle(Dbl2 p1L, Dbl2 p2L, Dbl2 p1R, Dbl2 p2R, int left);
 	Dbl2 calculate(int pattern, int left, int right, Dbl2 offset);
 };
 
@@ -630,6 +631,22 @@ Dbl2 AreaDiag::area(Dbl2 p1, Dbl2 p2, int left)
 	}
 }
 
+/* Calculate u-patterns using a triangle: */
+Dbl2 AreaDiag::areaTriangle(Dbl2 p1L, Dbl2 p2L, Dbl2 p1R, Dbl2 p2R, int left)
+{
+	double x1 = (double)(1 + left);
+	double x2 = x1 + 1.0;
+
+	Dbl2 dL = p2L - p1L;
+	Dbl2 dR = p2R - p1R;
+	double xm = ((p1L.x * dL.y / dL.x - p1L.y) - (p1R.x * dR.y / dR.x - p1R.y)) / (dL.y / dL.x - dR.y / dR.x);
+
+	double y1 = (x1 < xm) ? p1L.y + (x1 - p1L.x) * dL.y / dL.x : p1R.y + (x1 - p1R.x) * dR.y / dR.x;
+	double y2 = (x2 < xm) ? p1L.y + (x2 - p1L.x) * dL.y / dL.x : p1R.y + (x2 - p1R.x) * dR.y / dR.x;
+
+	return area(Dbl2(x1, y1), Dbl2(x2, y2), left);
+}
+
 /* Calculates the area for a given pattern and distances to the left and to the */
 /* right, biased by an offset: */
 Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
@@ -707,10 +724,9 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 */
 			if (m_orig_u)
 				return area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
-			else if (left < right)
-				return area(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d), left);
 			else
-				return area(Dbl2(0.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
+				return areaTriangle(Dbl2(1.0, 0.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d),
+						    Dbl2(0.0, 0.0), Dbl2(1.0, 0.0) + Dbl2(d) + offset, left);
 			break;
 		}
 		case EDGESDIAG_HORZ_NONE:
@@ -850,10 +866,9 @@ Dbl2 AreaDiag::calculate(int pattern, int left, int right, Dbl2 offset)
 			 */
 			if (m_orig_u)
 				return area(Dbl2(1.0, 1.0) + offset, Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
-			else if (left <= right)
-				return area(Dbl2(1.0, 1.0) + offset, Dbl2(2.0, 1.0) + Dbl2(d), left);
 			else
-				return area(Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
+				return areaTriangle(Dbl2(1.0, 1.0) + offset, Dbl2(2.0, 1.0) + Dbl2(d),
+						    Dbl2(1.0, 0.0), Dbl2(1.0, 1.0) + Dbl2(d) + offset, left);
 			break;
 		}
 		case EDGESDIAG_BOTH_VERT:
