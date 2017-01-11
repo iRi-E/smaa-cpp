@@ -28,6 +28,9 @@
 #include "smaa.h"
 #include "smaa_areatex.h"
 
+using std::min;
+using std::max;
+
 namespace SMAA {
 
 /*-----------------------------------------------------------------------------*/
@@ -718,7 +721,7 @@ bool PixelShader::isVerticalSearchUnneeded(ImageReader *edgesImage, int x, int y
 
 int PixelShader::searchXLeft(ImageReader *edgesImage, int x, int y)
 {
-	int end = x - m_max_search_steps;
+	int end = max(x - m_max_search_steps, -1);
 	float edges[4];
 
 	while (x > end) {
@@ -738,7 +741,7 @@ int PixelShader::searchXLeft(ImageReader *edgesImage, int x, int y)
 
 int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
 {
-	int end = x + m_max_search_steps;
+	int end = min(x + m_max_search_steps, edgesImage->getWidth());
 	float edges[4];
 
 	while (x < end) {
@@ -757,7 +760,7 @@ int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
 
 int PixelShader::searchYUp(ImageReader *edgesImage, int x, int y)
 {
-	int end = y - m_max_search_steps;
+	int end = max(y - m_max_search_steps, -1);
 	float edges[4];
 
 	while (y > end) {
@@ -777,7 +780,7 @@ int PixelShader::searchYUp(ImageReader *edgesImage, int x, int y)
 
 int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
 {
-	int end = y + m_max_search_steps;
+	int end = min(y + m_max_search_steps, edgesImage->getHeight());
 	float edges[4];
 
 	while (y < end) {
@@ -1000,8 +1003,6 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 
 void PixelShader::getAreaBlendingWeightCalculation(int *xmin, int *xmax, int *ymin, int *ymax)
 {
-	using std::max;
-
 	*xmin -= max(max(m_max_search_steps - 1, 1),
 		     m_enable_diag_detection ? m_max_search_steps_diag + 1 : 0);
 	*xmax += max(m_max_search_steps,
