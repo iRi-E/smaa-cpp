@@ -470,7 +470,7 @@ static void process_file(int preset, int detection_type, float threshold, float 
 
 int main(int argc, char **argv)
 {
-	int preset = SMAA::CONFIG_PRESET_HIGH;
+	int preset = SMAA::CONFIG_PRESET_EXTREME;
 	int detection = ED_COLOR;
 	float threshold = FLOAT_VAL_NOT_SPECIFIED;
 	float adaptation = FLOAT_VAL_NOT_SPECIFIED;
