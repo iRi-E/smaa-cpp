@@ -71,7 +71,7 @@ if(WITH_LIBRARY_STATIC OR WITH_LIBRARY_SHARED)
 endif()
 
 # Tests
-if (WITH_TESTS)
+if (WITH_TESTS AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 	enable_testing()
 	add_subdirectory(tests)
 	set(WITH_EXAMPLE ON)
