@@ -569,20 +569,22 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 		 * where N is max search distance
 		 */
 		if (found1) {
-			int co_x = x - d1, co_y = y + d1;
-			edgesImage->getPixel(co_x - 1, co_y, c);
+			int left = x - d1, bottom = y + d1;
+
+			edgesImage->getPixel(left - 1, bottom, c);
 			if (c[1] > 0.0f)
 				e1 += 2; /* ...->left->left */
-			edgesImage->getPixel(co_x, co_y, c);
+			edgesImage->getPixel(left, bottom, c);
 			if (c[0] > 0.0f)
 				e1 += 1; /* ...->left->down->down */
 		}
 		if (found2) {
-			int co_x = x + d2, co_y = y - d2;
-			edgesImage->getPixel(co_x + 1, co_y, c);
+			int right = x + d2, top = y - d2;
+
+			edgesImage->getPixel(right + 1, top, c);
 			if (c[1] > 0.0f)
 				e2 += 2; /* ...->right->right */
-			edgesImage->getPixel(co_x + 1, co_y - 1, c);
+			edgesImage->getPixel(right + 1, top - 1, c);
 			if (c[0] > 0.0f)
 				e2 += 1; /* ...->right->up->up */
 		}
@@ -637,17 +639,19 @@ void PixelShader::calculateDiagWeights(ImageReader *edgesImage, int x, int y, co
 		 * where N is max search distance
 		 */
 		if (found1) {
-			int co_x = x - d1, co_y = y - d1;
-			edgesImage->getPixel(co_x - 1, co_y, c);
+			int left = x - d1, top = y - d1;
+
+			edgesImage->getPixel(left - 1, top, c);
 			if (c[1] > 0.0f)
 				e1 += 2; /* ...->left->left */
-			edgesImage->getPixel(co_x, co_y - 1, c);
+			edgesImage->getPixel(left, top - 1, c);
 			if (c[0] > 0.0f)
 				e1 += 1; /* ...->left->up->up */
 		}
 		if (found2) {
-			int co_x = x + d2, co_y = y + d2;
-			edgesImage->getPixel(co_x + 1, co_y, c);
+			int right = x + d2, bottom = y + d2;
+
+			edgesImage->getPixel(right + 1, bottom, c);
 			if (c[1] > 0.0f)
 				e2 += 2; /* ...->right->right */
 			if (c[0] > 0.0f)
