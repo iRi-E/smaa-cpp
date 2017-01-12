@@ -21,11 +21,9 @@
 #
 cmake_minimum_required(VERSION 3.0)
 
-set(GENDIR ${CMAKE_BINARY_DIR}/include)
-
 configure_file(smaa_version.h.in smaa_version.h)
 
 if(WITH_INSTALL_HEADERS)
-	install(FILES smaa.h smaa_types.h ${GENDIR}/smaa_version.h
+	install(FILES smaa.h smaa_types.h ${CMAKE_CURRENT_BINARY_DIR}/smaa_version.h
 		DESTINATION include/smaa-cpp)
 endif()

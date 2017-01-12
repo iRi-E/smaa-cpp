@@ -21,8 +21,8 @@
 #
 cmake_minimum_required(VERSION 3.0)
 
-set(INCDIR ${CMAKE_SOURCE_DIR}/include)
-set(GENDIR ${CMAKE_BINARY_DIR}/include)
+set(INCDIR ../include)
+set(GENDIR ${CMAKE_CURRENT_BINARY_DIR}/../include)
 
 include_directories(${INCDIR} ${GENDIR})
 

@@ -21,9 +21,6 @@
 #
 cmake_minimum_required(VERSION 3.0)
 
-set(IMGDIR ${CMAKE_SOURCE_DIR}/tests)
-set(TESTDIR ${CMAKE_BINARY_DIR}/tests)
-
 file(GLOB FILES *_aa.png)
 unset(IMAGES)
 foreach(FILE IN LISTS FILES)
@@ -35,15 +32,13 @@ endforeach()
 foreach(IMAGE IN LISTS IMAGES)
 	add_test(
 		NAME filter_${IMAGE}
-		COMMAND "$<TARGET_FILE:smaa_png>" ${IMGDIR}/${IMAGE}.png ${IMAGE}_result.png
-		WORKING_DIRECTORY ${TESTDIR}
+		COMMAND "$<TARGET_FILE:smaa_png>" ${CMAKE_CURRENT_SOURCE_DIR}/${IMAGE}.png ${IMAGE}_result.png
 	)
 endforeach()
 
 foreach(IMAGE IN LISTS IMAGES)
 	add_test(
 		NAME compare_${IMAGE}
-		COMMAND diff -s ${IMGDIR}/${IMAGE}_aa.png ${IMAGE}_result.png
-		WORKING_DIRECTORY ${TESTDIR}
+		COMMAND diff -s ${CMAKE_CURRENT_SOURCE_DIR}/${IMAGE}_aa.png ${IMAGE}_result.png
 	)
 endforeach()
