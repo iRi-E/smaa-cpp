@@ -41,11 +41,6 @@ static const float RGB_WEIGHTS[3] = {0.2126f, 0.7152f, 0.0722f};
 /*-----------------------------------------------------------------------------*/
 /* Misc functions */
 
-static inline float step(float edge, float x)
-{
-	return x < edge ? 0.0f : 1.0f;
-}
-
 static inline float saturate(float x)
 {
 	return 0.0f < x ? (x < 1.0f ? x : 1.0f) : 0.0f;
@@ -205,8 +200,8 @@ void PixelShader::calculatePredicatedThreshold(int x, int y, ImageReader *predic
 	predicationImage->getPixel(x - 1, y, left);
 	predicationImage->getPixel(x, y - 1, top);
 
-	float edges[2] = {step(m_predication_threshold, fabsf(here[0] - left[0])),
-			  step(m_predication_threshold, fabsf(here[0] - top[0]))};
+	float edges[2] = {(fabsf(here[0] - left[0]) >= m_predication_threshold) ? 1.0f : 0.0f,
+			  (fabsf(here[0] - top[0])  >= m_predication_threshold) ? 1.0f : 0.0f};
 
 	float scaled = m_predication_scale * m_threshold;
 
@@ -247,8 +242,8 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	float Dtop  = fabsf(L - Ltop);
 
 	/* We do the usual threshold: */
-	edges[0] = (x > 0) ? step(threshold[0], Dleft) : 0.0;
-	edges[1] = (y > 0) ? step(threshold[1], Dtop) : 0.0;
+	edges[0] = (x > 0 && Dleft >= threshold[0]) ? 1.0f : 0.0f;
+	edges[1] = (y > 0 && Dtop  >= threshold[1]) ? 1.0f : 0.0f;
 	edges[2] = 0.0f;
 	edges[3] = 1.0f;
 
@@ -346,8 +341,8 @@ void PixelShader::colorEdgeDetection(int x, int y,
 	float Dtop  = color_delta(C, Ctop);
 
 	/* We do the usual threshold: */
-	edges[0] = (x > 0) ? step(threshold[0], Dleft) : 0.0;
-	edges[1] = (y > 0) ? step(threshold[1], Dtop) : 0.0;
+	edges[0] = (x > 0 && Dleft >= threshold[0]) ? 1.0f : 0.0f;
+	edges[1] = (y > 0 && Dtop  >= threshold[1]) ? 1.0f : 0.0f;
 	edges[2] = 0.0f;
 	edges[3] = 1.0f;
 
@@ -427,8 +422,8 @@ void PixelShader::depthEdgeDetection(int x, int y,
 	depthImage->getPixel(x - 1, y, left);
 	depthImage->getPixel(x, y - 1, top);
 
-	edges[0] = (x > 0) ? step(m_depth_threshold, fabsf(here[0] - left[0])) : 0.0;
-	edges[1] = (y > 0) ? step(m_depth_threshold, fabsf(here[0] - top[0])) : 0.0;
+	edges[0] = (x > 0 && fabsf(here[0] - left[0]) >= m_depth_threshold) ? 1.0f : 0.0f;
+	edges[1] = (y > 0 && fabsf(here[0] - top[0])  >= m_depth_threshold) ? 1.0f : 0.0f;
 	edges[2] = 0.0f;
 	edges[3] = 1.0f;
 }
