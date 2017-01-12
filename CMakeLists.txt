@@ -22,7 +22,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 project(smaa-cpp
-	VERSION 0.3.2
+	VERSION 0.4.0
 	LANGUAGES CXX
 )
 
