@@ -1050,7 +1050,36 @@ static void write_tga(AreaOrtho *ortho, AreaDiag *diag, FILE *fp, bool subsampli
 	}
 }
 
-static int generate_file(AreaOrtho *ortho, AreaDiag *diag, const char *path, bool subsampling, bool quantize, bool tga)
+/* .raw File (R8G8 raw data) */
+static void write_raw(AreaOrtho *ortho, AreaDiag *diag, FILE *fp, bool subsampling)
+{
+	int subsamples = subsampling ? SUBSAMPLES_ORTHO : 1;
+
+	/* Write pixel data  */
+	for (int i = 0; i < subsamples; i++) {
+		for (int y = 0; y < TEX_SIZE_ORTHO; y++) {
+			for (int x = 0; x < TEX_SIZE_ORTHO; x++) {
+				Dbl2 p = ortho->getPixel(i, Int2(x, y));
+				fputc((unsigned char)(p.x * 255.0), fp); /* R */
+				fputc((unsigned char)(p.y * 255.0), fp); /* G */
+			}
+
+			for (int x = 0; x < TEX_SIZE_DIAG; x++) {
+				if (i < SUBSAMPLES_DIAG) {
+					Dbl2 p = diag->getPixel(i, Int2(x, y));
+					fputc((unsigned char)(p.x * 255.0), fp); /* R */
+					fputc((unsigned char)(p.y * 255.0), fp); /* G */
+				}
+				else {
+					fputc(0, fp);
+					fputc(0, fp);
+				}
+			}
+		}
+	}
+}
+
+static int generate_file(AreaOrtho *ortho, AreaDiag *diag, const char *path, bool subsampling, bool quantize, bool tga, bool raw)
 {
 	FILE *fp = fopen(path, tga ? "wb" : "w");
 
@@ -1063,6 +1092,8 @@ static int generate_file(AreaOrtho *ortho, AreaDiag *diag, const char *path, boo
 
 	if (tga)
 		write_tga(ortho, diag, fp, subsampling);
+	else if (raw)
+		write_raw(ortho, diag, fp, subsampling);
 	else
 		write_csource(ortho, diag, fp, subsampling, quantize);
 
@@ -1076,6 +1107,7 @@ int main(int argc, char **argv)
 	bool subsampling = false;
 	bool quantize = false;
 	bool tga = false;
+	bool raw = false;
 	bool compat = false;
 	bool numeric = false;
 	bool orig_u = false;
@@ -1094,6 +1126,8 @@ int main(int argc, char **argv)
 					quantize = true;
 				else if (c == 't')
 					tga = true;
+				else if (c == 'r')
+					raw = true;
 				else if (c == 'c')
 					compat = true;
 				else if (c == 'n')
@@ -1131,6 +1165,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "    -s    Calculate data for subpixel rendering\n");
 		fprintf(stderr, "    -q    Quantize data to 256 levels\n");
 		fprintf(stderr, "    -t    Write TGA image instead of C/C++ source\n");
+		fprintf(stderr, "    -r    Write R8G8 raw image instead of C/C++ source\n");
 		fprintf(stderr, "    -c    Generate compatible orthogonal data that subtexture size is 16\n");
 		fprintf(stderr, "    -n    Numerically calculate diagonal data using brute force sampling\n");
 		fprintf(stderr, "    -u    Process orthogonal / diagonal U patterns in older ways\n");
@@ -1154,11 +1189,13 @@ int main(int argc, char **argv)
 	for (int i = 0; i < (subsampling ? SUBSAMPLES_DIAG : 1); i++)
 		diag->areaTex(i);
 
-	/* Generate C++ source file or .tga file, or write the data to stdout */
+	/* Generate .tga, .raw, or C/C++ source file, or write the data to stdout */
 	if (strcmp(outfile, "-") != 0)
-		status = generate_file(ortho, diag, outfile, subsampling, quantize, tga);
+		status = generate_file(ortho, diag, outfile, subsampling, quantize, tga, raw);
 	else if (tga)
 		write_tga(ortho, diag, stdout, subsampling);
+	else if (raw)
+		write_raw(ortho, diag, stdout, subsampling);
 	else
 		write_csource(ortho, diag, stdout, subsampling, quantize);
 
