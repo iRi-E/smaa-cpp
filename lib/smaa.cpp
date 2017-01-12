@@ -28,9 +28,6 @@
 #include "smaa.h"
 #include "smaa_areatex.h"
 
-using std::min;
-using std::max;
-
 namespace SMAA {
 
 /*-----------------------------------------------------------------------------*/
@@ -250,8 +247,8 @@ void PixelShader::lumaEdgeDetection(int x, int y,
 	float Dtop  = fabsf(L - Ltop);
 
 	/* We do the usual threshold: */
-	edges[0] = step(threshold[0], Dleft);
-	edges[1] = step(threshold[1], Dtop);
+	edges[0] = (x > 0) ? step(threshold[0], Dleft) : 0.0;
+	edges[1] = (y > 0) ? step(threshold[1], Dtop) : 0.0;
 	edges[2] = 0.0f;
 	edges[3] = 1.0f;
 
@@ -349,8 +346,8 @@ void PixelShader::colorEdgeDetection(int x, int y,
 	float Dtop  = color_delta(C, Ctop);
 
 	/* We do the usual threshold: */
-	edges[0] = step(threshold[0], Dleft);
-	edges[1] = step(threshold[1], Dtop);
+	edges[0] = (x > 0) ? step(threshold[0], Dleft) : 0.0;
+	edges[1] = (y > 0) ? step(threshold[1], Dtop) : 0.0;
 	edges[2] = 0.0f;
 	edges[3] = 1.0f;
 
@@ -430,8 +427,8 @@ void PixelShader::depthEdgeDetection(int x, int y,
 	depthImage->getPixel(x - 1, y, left);
 	depthImage->getPixel(x, y - 1, top);
 
-	edges[0] = step(m_depth_threshold, fabsf(here[0] - left[0]));
-	edges[1] = step(m_depth_threshold, fabsf(here[0] - top[0]));
+	edges[0] = (x > 0) ? step(m_depth_threshold, fabsf(here[0] - left[0])) : 0.0;
+	edges[1] = (y > 0) ? step(m_depth_threshold, fabsf(here[0] - top[0])) : 0.0;
 	edges[2] = 0.0f;
 	edges[3] = 1.0f;
 }
@@ -725,7 +722,7 @@ bool PixelShader::isVerticalSearchUnneeded(ImageReader *edgesImage, int x, int y
 
 int PixelShader::searchXLeft(ImageReader *edgesImage, int x, int y)
 {
-	int end = max(x - m_max_search_steps, -1);
+	int end = x - m_max_search_steps;
 	float edges[4];
 
 	while (x > end) {
@@ -745,7 +742,7 @@ int PixelShader::searchXLeft(ImageReader *edgesImage, int x, int y)
 
 int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
 {
-	int end = min(x + m_max_search_steps, edgesImage->getWidth());
+	int end = x + m_max_search_steps;
 	float edges[4];
 
 	while (x < end) {
@@ -764,7 +761,7 @@ int PixelShader::searchXRight(ImageReader *edgesImage, int x, int y)
 
 int PixelShader::searchYUp(ImageReader *edgesImage, int x, int y)
 {
-	int end = max(y - m_max_search_steps, -1);
+	int end = y - m_max_search_steps;
 	float edges[4];
 
 	while (y > end) {
@@ -784,7 +781,7 @@ int PixelShader::searchYUp(ImageReader *edgesImage, int x, int y)
 
 int PixelShader::searchYDown(ImageReader *edgesImage, int x, int y)
 {
-	int end = min(y + m_max_search_steps, edgesImage->getHeight());
+	int end = y + m_max_search_steps;
 	float edges[4];
 
 	while (y < end) {
@@ -1007,6 +1004,8 @@ void PixelShader::blendingWeightCalculation(int x, int y,
 
 void PixelShader::getAreaBlendingWeightCalculation(int *xmin, int *xmax, int *ymin, int *ymax)
 {
+	using std::max;
+
 	*xmin -= max(max(m_max_search_steps - 1, 1),
 		     m_enable_diag_detection ? m_max_search_steps_diag + 1 : 0);
 	*xmax += max(m_max_search_steps,
