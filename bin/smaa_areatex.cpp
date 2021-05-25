@@ -1079,27 +1079,14 @@ static void write_raw(AreaOrtho *ortho, AreaDiag *diag, FILE *fp, bool subsampli
 	}
 }
 
-static int generate_file(AreaOrtho *ortho, AreaDiag *diag, const char *path, bool subsampling, bool quantize, bool tga, bool raw)
+static void write_file(AreaOrtho *ortho, AreaDiag *diag, FILE *fp, bool subsampling, bool quantize, bool tga, bool raw)
 {
-	FILE *fp = fopen(path, tga ? "wb" : "w");
-
-	if (!fp) {
-		fprintf(stderr, "Unable to open file: %s\n", path);
-		return 1;
-	}
-
-	fprintf(stderr, "Generating %s\n", path);
-
 	if (tga)
 		write_tga(ortho, diag, fp, subsampling);
 	else if (raw)
 		write_raw(ortho, diag, fp, subsampling);
 	else
 		write_csource(ortho, diag, fp, subsampling, quantize);
-
-	fclose(fp);
-
-	return 0;
 }
 
 int main(int argc, char **argv)
@@ -1190,14 +1177,21 @@ int main(int argc, char **argv)
 		diag->areaTex(i);
 
 	/* Generate .tga, .raw, or C/C++ source file, or write the data to stdout */
-	if (strcmp(outfile, "-") != 0)
-		status = generate_file(ortho, diag, outfile, subsampling, quantize, tga, raw);
-	else if (tga)
-		write_tga(ortho, diag, stdout, subsampling);
-	else if (raw)
-		write_raw(ortho, diag, stdout, subsampling);
+	if (strcmp(outfile, "-") != 0) {
+		FILE *fp = fopen(outfile, tga ? "wb" : "w");
+
+		if (!fp) {
+			fprintf(stderr, "Unable to open file: %s\n", outfile);
+			status = 1;
+		}
+		else {
+			fprintf(stderr, "Generating %s\n", outfile);
+			write_file(ortho, diag, fp, subsampling, quantize, tga, raw);
+			fclose(fp);
+		}
+	}
 	else
-		write_csource(ortho, diag, stdout, subsampling, quantize);
+		write_file(ortho, diag, stdout, subsampling, quantize, tga, raw);
 
 	delete ortho;
 	delete diag;
