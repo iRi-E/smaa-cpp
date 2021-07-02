@@ -2,7 +2,7 @@
 An implementation of Enhanced Subpixel Morphological Antialiasing (SMAA) written in C++
 
 ## Requirements
-- CMake (>= 3.0)
+- CMake (>= 3.1)
 - libpng (optional, needed for tests and example)
 
 ## Building
